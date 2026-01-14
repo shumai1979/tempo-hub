@@ -2,62 +2,106 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Sucesso Moderato</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tempo Hub - Moderato Active</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn:hover { transform: scale(1.02); }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; --danger: #f87171; }
+        body { 
+            background: var(--bg); 
+            color: white; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .container { 
+            background: var(--card); 
+            padding: 2.5rem; 
+            border-radius: 24px; 
+            text-align: center; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            width: 100%; 
+            max-width: 400px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
+        }
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
+        .status-tag { 
+            color: var(--primary); 
+            font-size: 0.65rem; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            margin-bottom: 2rem; 
+            display: block; 
+            letter-spacing: 2px;
+        }
+        .btn-action { 
+            background: var(--primary); 
+            color: var(--bg); 
+            border: none; 
+            padding: 1.2rem; 
+            width: 100%; 
+            border-radius: 12px; 
+            font-weight: 800; 
+            cursor: pointer; 
+            font-size: 1rem; 
+            transition: all 0.2s ease;
+        }
+        .btn-action:hover { transform: translateY(-2px); opacity: 0.9; }
+        .btn-action:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        #displayStatus { 
+            margin-top: 1.5rem; 
+            font-size: 0.85rem; 
+            color: #94a3b8; 
+            line-height: 1.5; 
+            min-height: 60px;
+        }
+        .success { color: var(--success); font-weight: bold; }
+        .error { color: var(--danger); font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2 style="margin:0">Tempo Hub</h2>
-        <p style="color:var(--primary); font-size:0.7rem; letter-spacing:1px; margin-bottom:20px;">REDE MODERATO ATIVA</p>
-        <button id="mintBtn" class="btn">MINT STARTER KIT</button>
-        <div id="status">Conta verificada no explorador. Pronto para Mint!</div>
+
+    <div class="container">
+        <h1>TEMPO HUB</h1>
+        <span class="status-tag">Moderato Network Active</span>
+        
+        <button id="mainBtn" class="btn-action">MINT STARTER KIT</button>
+        
+        <div id="displayStatus">
+            Conecte a Rabby Wallet para interagir com a rede Moderato.
+        </div>
     </div>
 
 <script>
-    const ADDR = "0x20c0000000000000000000000000000000000005";
+    // Configurações Oficiais extraídas do Explorador
+    const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
+    const CHAIN_ID = "0xa5bf"; // 42431
 
-    document.getElementById('mintBtn').onclick = async () => {
-        const status = document.getElementById('status');
+    const btn = document.getElementById('mainBtn');
+    const status = document.getElementById('displayStatus');
+
+    btn.onclick = async () => {
+        btn.disabled = true;
+        status.innerText = "A ligar à Rabby Wallet...";
+
         try {
+            if (!window.ethereum) {
+                status.innerHTML = "<span class='error'>Erro: Rabby Wallet não detetada.</span>";
+                btn.disabled = false;
+                return;
+            }
+
             const provider = new ethers.providers.Web3Provider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            const signer = provider.getSigner();
-            const userAddr = await signer.getAddress();
-            const contract = new ethers.Contract(ADDR, ABI, signer);
-
-            status.innerText = "A processar mint... Assina na Rabby.";
-
-            <script>
-    // ... dentro da função executeMint()
-    
-    // O explorador mostra que as taxas foram pagas em frações mínimas
-    // Vamos ajustar o gasLimit para ser exatamente o que a rede processou com sucesso
-    const tx = await contract.mint(userAddr, ethers.utils.parseEther("9982000"), {
-        gasLimit: 300000, // Ajustado conforme as transações bem-sucedidas no teu histórico
-        gasPrice: 1000000002,
-        type: 0 
-    });
-</script>
-
-            status.innerText = "Transação enviada! A aguardar rede...";
-            await tx.wait();
-            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! Novo Kit resgatado.</b>";
-
-        } catch (err) {
-            console.error(err);
-            status.innerText = "A rede está lenta, mas a tua conta está ativa. Tenta de novo.";
-        }
-    };
-</script>
-</body>
-</html>
-
+            
+            // Garantir que estamos na rede certa
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: CHAIN_ID }],
+            }).catch(async (err) => {
+                if (err.code === 4902) {
+                    status.innerText = "Adicionando rede Moderato...";
+                    await window
