@@ -14,77 +14,51 @@
         .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem 2rem; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; transition: 0.3s; font-size: 1.1rem; text-transform: uppercase; }
         .btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(56, 189, 248, 0.4); }
         .btn:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; opacity: 0.7; }
-        #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; line-height: 1.4; min-height: 50px; }
-        .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 6px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 1rem; display: inline-block; }
-        .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; cursor: pointer; font-weight: bold; }
+        #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; min-height: 50px; }
+        .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; font-weight: bold; }
         footer { font-size: 0.75rem; color: #475569; text-align: center; padding-bottom: 20px; }
-        footer a { color: #64748b; text-decoration: none; margin: 0 10px; transition: 0.3s; }
-        footer a:hover { color: var(--primary); }
+        footer a { color: #64748b; text-decoration: none; margin: 0 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="badge">Moderato Testnet</div>
     <h1>Tempo Hub</h1>
-    <p>Secure your exclusive Starter Kit on the official Tempo Network ecosystem.</p>
+    <p>Claim your exclusive Starter Kit on Moderato Network.</p>
     <button class="btn" id="mintBtn">Connect & Claim</button>
     <div id="status">Ready to initialize</div>
     <a id="txLink" href="#" target="_blank" class="explorer-link">View Transaction Proof</a>
 </div>
 
 <footer>
-    <p>
-        <a href="https://tempo.xyz/" target="_blank">Official Website</a> | 
-        <a href="https://github.com/tempoxyz" target="_blank">GitHub</a> | 
-        <a href="https://explorer.tempo.xyz/" target="_blank">Explorer</a>
-    </p>
+    <p><a href="https://tempo.xyz/" target="_blank">Official Website</a> | <a href="https://github.com/tempoxyz" target="_blank">GitHub</a></p>
 </footer>
 
 <script>
     const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037"; 
-    const ABI = [
-        "function mintStarterKit() public payable",
-        "function hasClaimed(address) public view returns (bool)"
-    ];
+    const ABI = ["function mintStarterKit() public payable"];
 
     const mintBtn = document.getElementById('mintBtn');
     const statusDiv = document.getElementById('status');
     const txLink = document.getElementById('txLink');
 
     mintBtn.onclick = async () => {
-        // Selecionar o provider correto para evitar conflitos de extensões (image_d57465.png)
-        const provider_source = window.ethereum;
-        
-        if (!provider_source) {
-            return alert("No wallet found. Please install Rabby Wallet.");
-        }
+        if (!window.ethereum) return alert("Wallet not found!");
         
         try {
-            statusDiv.innerText = "Connecting...";
-            // Criar provider com rede "any" para suportar mudanças bruscas de RPC
-            const provider = new ethers.providers.Web3Provider(provider_source, "any");
-            
-            const accounts = await provider.send("eth_requestAccounts", []);
+            // PASSO 1: Forçar sempre a abertura da carteira para conectar
+            statusDiv.innerText = "Connecting to wallet...";
+            const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
-            const address = accounts[0];
-            
-            statusDiv.innerText = "Verifying eligibility...";
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-            
-            // Verificação proativa para evitar o erro de 'execution reverted' (image_d57b2a.png)
-            const alreadyClaimed = await contract.hasClaimed(address);
-            if (alreadyClaimed) {
-                statusDiv.innerHTML = "<b style='color:var(--danger);'>Already claimed with this wallet.</b>";
-                mintBtn.innerText = "CLAIMED";
-                mintBtn.disabled = true;
-                return;
-            }
 
-            statusDiv.innerText = "Please sign in your wallet...";
+            // PASSO 2: Tentar o Mint diretamente (a carteira vai saltar para assinar)
+            statusDiv.innerText = "Signing transaction...";
             const tx = await contract.mintStarterKit({ gasLimit: 150000 });
 
-            statusDiv.innerHTML = "Transaction pending...";
+            // PASSO 3: Se a carteira aceitou a assinatura
+            statusDiv.innerHTML = "Transaction sent! Waiting for network...";
             txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
             txLink.style.display = "inline-block";
 
@@ -94,12 +68,12 @@
             mintBtn.disabled = true;
 
         } catch (err) {
-            console.error("Critical Error:", err);
-            // Tratamento amigável para o erro de reversão visto na consola
-            if (err.message.includes("execution reverted") || err.code === -32603) {
-                statusDiv.innerHTML = "<b style='color:var(--danger);'>Action rejected: Already claimed or insufficient funds.</b>";
+            console.error(err);
+            // PASSO 4: O erro só aparece se algo falhar no processo
+            if (err.message.includes("execution reverted")) {
+                statusDiv.innerHTML = "<b style='color:var(--danger);'>REJECTED: Already claimed or no funds.</b>";
             } else {
-                statusDiv.innerText = "Connection failed. Ensure only ONE wallet is active.";
+                statusDiv.innerText = "Process stopped or canceled.";
             }
         }
     };
