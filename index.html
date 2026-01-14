@@ -10,6 +10,7 @@
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
         .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
+        .btn-mint:disabled { background: #475569; cursor: not-allowed; }
         .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; text-align: left; }
         .wallet-option:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
         .wallet-option img { width: 30px; margin-right: 15px; border-radius: 4px; }
@@ -32,18 +33,16 @@
             <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
         </div>
 
-        <div id="status">A detetar extensões...</div>
+        <div id="status">A aguardar conexão...</div>
     </div>
 
 <script>
-    // Configurações extraídas da documentação e transações de sucesso
-    const MODERATO_CHAIN_ID = "0xa5bf"; // 42431 em hexadecimal
+    const MODERATO_CHAIN_ID = "0xa5bf"; 
     const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
     
     let selectedProvider = null;
 
-    // 1. Deteção da Rabby e Troca de Rede
     window.addEventListener("eip6963:announceProvider", (event) => {
         if (event.detail.info.name !== "Rabby Wallet") return;
         const div = document.createElement("div");
@@ -53,56 +52,57 @@
             try {
                 selectedProvider = event.detail.provider;
                 const p = new ethers.providers.Web3Provider(selectedProvider);
-                
-                // Forçar troca para rede Moderato
-                try {
-                    await selectedProvider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: MODERATO_CHAIN_ID }],
-                    });
-                } catch (e) { console.log("Rede já selecionada ou erro ao trocar."); }
-
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = "Ligado. Clica em Mint.";
+                document.getElementById('status').innerText = "Ligado. Pronto para o Mint.";
             } catch (err) {
                 document.getElementById('status').innerText = "Erro na conexão.";
             }
         };
         document.getElementById('walletList').innerHTML = "";
         document.getElementById('walletList').appendChild(div);
-        document.getElementById('status').innerText = "Clica na carteira acima.";
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-    // 2. Lógica de Mint
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
+        const btn = document.getElementById('mintBtn');
+        
         try {
-            status.innerText = "A validar transação na Moderato...";
+            btn.disabled = true;
+            status.innerText = "A estabilizar conexão com a rede...";
+            
+            // Pequeno atraso para evitar o erro 429 (Rate Limit)
+            await new Promise(r => setTimeout(r, 1000));
+
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const userAddress = await signer.getAddress();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // Valor bruto conforme image_15e2e0
+            // Valor exato da transação de sucesso com 18 decimais
             const amount = ethers.BigNumber.from("9982000000000000000000000"); 
 
-            status.innerHTML = "<b>Assina na Rabby agora.</b><br>Ignora o aviso 'Simulation Not Supported'.";
+            status.innerHTML = "<b>Assina na Rabby agora.</b><br>Se aparecer 'Rate Limit', aguarda 30 segundos.";
             
             const tx = await contract.mint(userAddress, amount, {
-                gasLimit: 800000, 
+                gasLimit: 850000, 
                 gasPrice: 1000000002 
             });
             
-            status.innerHTML = "<b>Pendente...</b><br>A aguardar rede Moderato.";
+            status.innerHTML = "<b>Transação em processamento...</b>";
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
             
         } catch (err) {
             console.error(err);
-            status.innerHTML = `<b style="color:var(--danger);">Falha:</b><br><small>O contrato rejeitou. Confirma se tens AlphaUSD para a taxa.</small>`;
+            btn.disabled = false;
+            if (err.message.includes("429")) {
+                status.innerHTML = `<b style="color:var(--danger);">Erro: Muitas tentativas.</b><br>Aguarda 1 minuto e tenta novamente sem atualizar a página.`;
+            } else {
+                status.innerHTML = `<b style="color:var(--danger);">Falha no Contrato:</b><br><small>Verifica se já fizeste o mint ou se tens AlphaUSD.</small>`;
+            }
         }
     };
 </script>
