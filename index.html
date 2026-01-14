@@ -79,29 +79,37 @@
     document.getElementById('mintBtn').onclick = async () => {
         if (!selectedProvider) return;
         try {
-            statusDiv.innerText = "Abre a carteira e confirma...";
+            statusDiv.innerText = "Confirma na tua carteira...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
             
-            // Aumentamos o limite de gás para evitar falhas de execução
-            const tx = await contract.mintStarterKit({ 
-                gasLimit: 300000 
-            });
-            
-            statusDiv.innerHTML = "A processar... <br><small>Isto pode demorar 30 segundos.</small>";
+            // 1. Tentar simular primeiro para ver se o contrato aceita
+            try {
+                await contract.callStatic.mintStarterKit();
+            } catch (simError) {
+                console.error("Erro na simulação:", simError);
+                statusDiv.innerHTML = `<b style='color:var(--danger);'>O contrato rejeitou: ${simError.reason || "Requisito não cumprido"}</b>`;
+                return;
+            }
+
+            const tx = await contract.mintStarterKit({ gasLimit: 250000 });
+            statusDiv.innerHTML = "A processar na Blockchain...";
             const receipt = await tx.wait();
 
             if (receipt.status === 1) {
-                statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCESSO! 🚀 Verificamos o teu kit.</b>";
+                statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCESSO! 🚀</b>";
             } else {
-                statusDiv.innerHTML = "<b style='color:var(--danger);'>O Contrato rejeitou o Mint.</b>";
+                statusDiv.innerHTML = "<b style='color:var(--danger);'>A transação falhou na rede.</b>";
             }
         } catch (err) {
-            console.error(err);
-            statusDiv.innerHTML = `<b style='color:var(--danger);'>Erro: ${err.reason || "Saldo ou Mint já feito."}</b>`;
+            console.error("Erro Final:", err);
+            // Captura erros comuns de saldo ou cancelamento
+            const msg = err.data?.message || err.message;
+            statusDiv.innerHTML = `<b style='color:var(--danger);'>Erro: ${msg.includes("insufficient") ? "Saldo Insuficiente" : "Falha no Mint"}</b>`;
         }
     };
 </script>
 </body>
 </html>
+
