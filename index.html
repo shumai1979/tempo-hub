@@ -2,66 +2,78 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Final Review Build</title>
+    <title>Tempo Hub - Official Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        body { background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding-top: 50px; }
-        .card { background: #1e293b; padding: 30px; border-radius: 20px; display: inline-block; border: 1px solid #38bdf8; }
-        button { background: #38bdf8; border: none; padding: 15px 30px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        #status { margin-top: 20px; color: #94a3b8; font-size: 0.9rem; }
-    </style>
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 400px; }
+        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
+    </small></style>
 </head>
 <body>
-    <div class="card">
-        <h1>Moderato Mint v4.0</h1>
-        <div id="walletSection">A carregar...</div>
-        <div id="mintSection" style="display:none">
-            <button id="mintBtn">EXECUTAR MINT</button>
+    <div class="container">
+        <h2>Tempo Hub Moderato</h2>
+        <div id="connectSection">
+            <button class="btn" id="connectBtn">Conectar Rabby</button>
         </div>
-        <p id="status">Verifica se tens AlphaUSD na carteira.</p>
+        <div id="mintSection" style="display:none">
+            <p>Carteira: <span id="addrDisplay" style="color:var(--primary)"></span></p>
+            <button class="btn" id="mintBtn">MINT STARTER KIT</button>
+        </div>
+        <p id="status">A aguardar conexão...</p>
     </div>
 
-    <script>
-        const ADDR = "0x20c0000000000000000000000000000000000005";
-        const ABI = ["function mint(address to, uint256 amount) public"];
-        let signer;
+<script>
+    // Endereço do contrato de distribuição (Proxy) para a Moderato
+    const PROXY_CONTRACT = "0x20c0000000000000000000000000000000000005";
+    const ABI = ["function mint(address to, uint256 amount) public"];
+    
+    let signer;
 
-        window.addEventListener("eip6963:announceProvider", (e) => {
-            if (e.detail.info.name !== "Rabby Wallet") return;
-            const btn = document.createElement("button");
-            btn.innerText = "Ligar Rabby";
-            btn.onclick = async () => {
-                const p = new ethers.providers.Web3Provider(e.detail.provider);
-                await p.send("eth_requestAccounts", []);
-                signer = p.getSigner();
-                document.getElementById('walletSection').style.display = 'none';
-                document.getElementById('mintSection').style.display = 'block';
-                document.getElementById('status').innerText = "Ligado à Moderato.";
-            };
-            document.getElementById('walletSection').innerHTML = "";
-            document.getElementById('walletSection').appendChild(btn);
-        });
-        window.dispatchEvent(new Event("eip6963:requestProvider"));
+    document.getElementById('connectBtn').onclick = async () => {
+        if (!window.ethereum) return alert("Instala a Rabby!");
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
+        
+        document.getElementById('addrDisplay').innerText = address.substring(0,6) + "..." + address.substring(38);
+        document.getElementById('connectSection').style.display = 'none';
+        document.getElementById('mintSection').style.display = 'block';
+        document.getElementById('status').innerText = "Ligado à rede Moderato.";
+    };
 
-        document.getElementById('mintBtn').onclick = async () => {
-            const status = document.getElementById('status');
-            try {
-                status.innerText = "A enviar... (Ignora erro de simulação)";
-                const contract = new ethers.Contract(ADDR, ABI, signer);
-                const val = ethers.utils.parseUnits("9982000", 18);
-                
-                const tx = await contract.mint(await signer.getAddress(), val, {
-                    gasLimit: 500000,
-                    gasPrice: 1000000002
-                });
-                status.innerText = "Transação enviada! Aguarda...";
-                await tx.wait();
-                status.innerHTML = "<b style='color:green'>SUCESSO!</b>";
-            } catch (err) {
-                console.error(err);
-                status.innerText = "Erro: " + (err.reason || "Verifica saldo de AlphaUSD.");
+    document.getElementById('mintBtn').onclick = async () => {
+        const status = document.getElementById('status');
+        try {
+            status.innerText = "A processar... Por favor, assina na Rabby.";
+            
+            const contract = new ethers.Contract(PROXY_CONTRACT, ABI, signer);
+            const userAddr = await signer.getAddress();
+            
+            // Valor exato detetado no explorador para a tua conta
+            const amount = ethers.utils.parseUnits("9982000", 18);
+
+            // IMPORTANTE: Na Moderato, o gasLimit tem de ser exato
+            const tx = await contract.mint(userAddr, amount, {
+                gasLimit: 400000, 
+                gasPrice: 1000000002 // Preço padrão da rede Moderato
+            });
+
+            status.innerText = "Transação enviada! Aguarda a blockchain...";
+            await tx.wait();
+            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! O Kit está na tua conta.</b>";
+        } catch (err) {
+            console.error(err);
+            if (err.message.includes("429")) {
+                status.innerText = "Erro: Servidor ocupado. Tenta de novo em 10 segundos.";
+            } else {
+                status.innerText = "O contrato de sistema ainda não libertou o mint para esta carteira.";
             }
-        };
-    </script>
+        }
+    };
+</script>
 </body>
 </html>
