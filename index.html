@@ -39,7 +39,7 @@
     let selectedProvider = null;
     const announcedProviders = new Set();
 
-    // 1. Detetar Carteiras e Isolamento de Conflitos
+    // 1. Detetar Carteiras com Isolamento de Conflitos (EIP-6963)
     window.addEventListener("eip6963:announceProvider", (event) => {
         const info = event.detail.info;
         if (announcedProviders.has(info.rdns)) return;
@@ -71,21 +71,17 @@
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // Chamada direta para permitir o uso de PathUSD como gás
-            const tx = await contract.mintStarterKit({ 
-                gasLimit: 400000 
-            });
-            
+            // Forçar gasLimit para ignorar falhas de simulação causadas por falta de token nativo
+            const tx = await contract.mintStarterKit({ gasLimit: 400000 });
             status.innerText = "A processar na Blockchain...";
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
         } catch (err) {
             console.error(err);
-            // Diagnóstico baseado nas tuas imagens (dfeff6.png / e1c4f3.png)
             if (err.message.includes("reverted")) {
-                status.innerHTML = "<b style='color:var(--danger);'>O contrato rejeitou a transação. Verifica se já fizeste o mint nesta conta.</b>";
+                status.innerHTML = "<b style='color:var(--danger);'>O contrato rejeitou. Verifica se já fizeste o mint nesta conta.</b>";
             } else {
-                status.innerText = "Erro: Confirma se tens PathUSD suficiente para as taxas.";
+                status.innerText = "Erro: Confirma se tens PathUSD para as taxas.";
             }
         }
     };
@@ -98,12 +94,12 @@
             const signer = provider.getSigner();
             const addr = await signer.getAddress();
             status.innerText = "A assinar teste de rede...";
-            // Teste de assinatura sem gasto de gás real
+            // Envio de 0 ETH para testar apenas a assinatura e conexão
             const tx = await signer.sendTransaction({ to: addr, value: 0 });
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>LIGAÇÃO 100% OK! 📡</b>";
-        } catch (err) { 
-            status.innerHTML = "<b style='color:var(--danger);'>Erro no teste de assinatura.</b>"; 
-        }
+        } catch (err) { status.innerHTML = "<b style='color:var(--danger);'>Erro no teste de assinatura.</b>"; }
     };
-</
+</script>
+</body>
+</html>
