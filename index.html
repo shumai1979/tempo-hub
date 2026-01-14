@@ -3,80 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub</title>
+    <title>Tempo Hub - Multi-Wallet</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; }
-        body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 3rem; border-radius: 24px; box-shadow: 0 0 50px rgba(56, 189, 248, 0.2); border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 400px; width: 90%; margin-bottom: 2rem; }
-        h1 { color: var(--primary); font-size: 2.5rem; margin-bottom: 0.5rem; letter-spacing: -1px; font-weight: 800; }
-        p { color: #94a3b8; margin-bottom: 2rem; }
-        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem 2rem; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; transition: 0.3s; font-size: 1.1rem; text-transform: uppercase; }
-        .btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(56, 189, 248, 0.4); }
-        .btn:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; opacity: 0.7; }
-        #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; min-height: 50px; }
-        .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; font-weight: bold; }
-        footer { font-size: 0.75rem; color: #475569; text-align: center; padding-bottom: 20px; }
-        footer a { color: #64748b; text-decoration: none; margin: 0 10px; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
+        body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); }
+        .wallet-option { 
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
+            padding: 1rem; margin: 10px 0; border-radius: 12px; cursor: pointer; 
+            display: flex; align-items: center; transition: 0.3s; 
+        }
+        .wallet-option:hover { background: rgba(56, 189, 248, 0.2); border-color: var(--primary); }
+        .wallet-option img { width: 32px; height: 32px; margin-right: 15px; border-radius: 6px; }
+        #status { margin-top: 1rem; font-size: 0.9rem; color: #94a3b8; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Tempo Hub</h1>
-    <p>Claim your exclusive Starter Kit on Moderato Network.</p>
-    <button class="btn" id="mintBtn">CONNECT & CLAIM</button>
-    <div id="status">Ready to initialize</div>
-    <a id="txLink" href="#" target="_blank" class="explorer-link">View Transaction Proof</a>
+    <p>Escolhe a tua carteira para o Starter Kit:</p>
+    
+    <div id="walletList">
+        </div>
+
+    <div id="actionArea" class="hidden">
+        <button id="mintBtn" style="background:var(--primary); border:none; padding:1rem; width:100%; border-radius:12px; font-weight:bold; cursor:pointer;">MINT STARTER KIT</button>
+    </div>
+
+    <div id="status">Detetando carteiras instaladas...</div>
 </div>
 
-<footer>
-    <p><a href="https://tempo.xyz/" target="_blank">Official Website</a> | <a href="https://github.com/tempoxyz" target="_blank">GitHub</a></p>
-</footer>
-
 <script>
-    const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037"; 
+    const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
     const ABI = ["function mintStarterKit() public payable"];
+    let selectedProvider = null;
 
-    const mintBtn = document.getElementById('mintBtn');
+    const walletList = document.getElementById('walletList');
     const statusDiv = document.getElementById('status');
-    const txLink = document.getElementById('txLink');
+    const actionArea = document.getElementById('actionArea');
 
-    mintBtn.onclick = async () => {
-        // Deteta se é a Rabby ou outra para evitar os erros de "redefine property"
-        const provider_source = window.ethereum;
-        if (!provider_source) return alert("Wallet not found!");
+    // 1. Escutar todas as carteiras que "levantam a mão" (EIP-6963)
+    window.addEventListener("eip6963:announceProvider", (event) => {
+        const info = event.detail.info;
+        const provider = event.detail.provider;
 
+        const btn = document.createElement("div");
+        btn.className = "wallet-option";
+        btn.innerHTML = `<img src="${info.icon}" alt="${info.name}"> <span>${info.name}</span>`;
+        
+        btn.onclick = async () => {
+            selectedProvider = provider;
+            try {
+                const ethersProvider = new ethers.providers.Web3Provider(selectedProvider);
+                await ethersProvider.send("eth_requestAccounts", []);
+                statusDiv.innerText = `Conectado com ${info.name}`;
+                walletList.classList.add('hidden');
+                actionArea.classList.remove('hidden');
+            } catch (e) {
+                statusDiv.innerText = "Erro ao conectar.";
+            }
+        };
+        
+        walletList.appendChild(btn);
+        statusDiv.innerText = "Carteiras encontradas!";
+    });
+
+    // 2. Notificar as carteiras de que o site está pronto para as ver
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+    // 3. Lógica do Mint
+    document.getElementById('mintBtn').onclick = async () => {
+        if (!selectedProvider) return;
         try {
-            statusDiv.innerText = "Connecting to wallet...";
-            const provider = new ethers.providers.Web3Provider(provider_source, "any");
-            
-            // Força a conexão imediata
-            await provider.send("eth_requestAccounts", []);
+            const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
-            // Chama a transação (A carteira salta aqui!)
-            statusDiv.innerText = "Signing transaction...";
-            const tx = await contract.mintStarterKit({ gasLimit: 150000 });
-
-            statusDiv.innerHTML = "Transaction sent! Waiting for network...";
-            txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
-            txLink.style.display = "inline-block";
-
+            
+            statusDiv.innerText = "Assina a transação na tua carteira...";
+            const tx = await contract.mintStarterKit({ gasLimit: 200000 });
+            statusDiv.innerText = "A processar na rede...";
             await tx.wait();
-            statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCCESSFULLY CLAIMED! 🚀</b>";
-            mintBtn.innerText = "COMPLETE";
-            mintBtn.disabled = true;
-
+            statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCESSO! 🚀</b>";
         } catch (err) {
+            statusDiv.innerText = "Falha no Mint. Verifica o saldo ou se já mintaste.";
             console.error(err);
-            // Se o erro for de execução (já resgatou)
-            if (err.code === -32603 || err.message.includes("execution reverted")) {
-                statusDiv.innerHTML = "<b style='color:var(--danger);'>REJECTED: Already claimed or no funds.</b>";
-            } else {
-                statusDiv.innerText = "Interaction canceled or network busy.";
-            }
         }
     };
 </script>
