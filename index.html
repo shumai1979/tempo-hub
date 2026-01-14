@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub - Multi-Wallet</title>
+    <title>Tempo Hub - Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; }
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); }
         .wallet-option { 
@@ -16,80 +16,90 @@
         }
         .wallet-option:hover { background: rgba(56, 189, 248, 0.2); border-color: var(--primary); }
         .wallet-option img { width: 32px; height: 32px; margin-right: 15px; border-radius: 6px; }
-        #status { margin-top: 1rem; font-size: 0.9rem; color: #94a3b8; }
+        #status { margin-top: 1rem; font-size: 0.9rem; color: #94a3b8; min-height: 40px; }
         .hidden { display: none; }
+        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1.1rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Tempo Hub</h1>
-    <p>Escolhe a tua carteira para o Starter Kit:</p>
-    
-    <div id="walletList">
-        </div>
-
-    <div id="actionArea" class="hidden">
-        <button id="mintBtn" style="background:var(--primary); border:none; padding:1rem; width:100%; border-radius:12px; font-weight:bold; cursor:pointer;">MINT STARTER KIT</button>
+    <div id="setupArea">
+        <p>Escolhe a tua carteira:</p>
+        <div id="walletList"></div>
     </div>
 
-    <div id="status">Detetando carteiras instaladas...</div>
+    <div id="actionArea" class="hidden">
+        <p style="color:var(--primary)">✓ Carteira Conectada</p>
+        <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
+    </div>
+
+    <div id="status">A procurar carteiras...</div>
 </div>
 
 <script>
     const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
     const ABI = ["function mintStarterKit() public payable"];
     let selectedProvider = null;
+    const discoveredWallets = new Set(); // Para evitar duplicados
 
     const walletList = document.getElementById('walletList');
     const statusDiv = document.getElementById('status');
-    const actionArea = document.getElementById('actionArea');
 
-    // 1. Escutar todas as carteiras que "levantam a mão" (EIP-6963)
     window.addEventListener("eip6963:announceProvider", (event) => {
         const info = event.detail.info;
-        const provider = event.detail.provider;
+        
+        // SÓ ADICIONA SE AINDA NÃO EXISTIR NA LISTA
+        if (discoveredWallets.has(info.rdns)) return;
+        discoveredWallets.add(info.rdns);
 
         const btn = document.createElement("div");
         btn.className = "wallet-option";
         btn.innerHTML = `<img src="${info.icon}" alt="${info.name}"> <span>${info.name}</span>`;
         
         btn.onclick = async () => {
-            selectedProvider = provider;
             try {
+                selectedProvider = event.detail.provider;
                 const ethersProvider = new ethers.providers.Web3Provider(selectedProvider);
                 await ethersProvider.send("eth_requestAccounts", []);
-                statusDiv.innerText = `Conectado com ${info.name}`;
-                walletList.classList.add('hidden');
-                actionArea.classList.remove('hidden');
+                document.getElementById('setupArea').classList.add('hidden');
+                document.getElementById('actionArea').classList.remove('hidden');
+                statusDiv.innerText = `Pronto para mintar com ${info.name}`;
             } catch (e) {
-                statusDiv.innerText = "Erro ao conectar.";
+                statusDiv.innerText = "Conexão rejeitada.";
             }
         };
-        
         walletList.appendChild(btn);
-        statusDiv.innerText = "Carteiras encontradas!";
+        statusDiv.innerText = "Carteiras prontas.";
     });
 
-    // 2. Notificar as carteiras de que o site está pronto para as ver
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-    // 3. Lógica do Mint
     document.getElementById('mintBtn').onclick = async () => {
         if (!selectedProvider) return;
         try {
+            statusDiv.innerText = "Abre a carteira e confirma...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
             
-            statusDiv.innerText = "Assina a transação na tua carteira...";
-            const tx = await contract.mintStarterKit({ gasLimit: 200000 });
-            statusDiv.innerText = "A processar na rede...";
-            await tx.wait();
-            statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCESSO! 🚀</b>";
+            // Aumentamos o limite de gás para evitar falhas de execução
+            const tx = await contract.mintStarterKit({ 
+                gasLimit: 300000 
+            });
+            
+            statusDiv.innerHTML = "A processar... <br><small>Isto pode demorar 30 segundos.</small>";
+            const receipt = await tx.wait();
+
+            if (receipt.status === 1) {
+                statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCESSO! 🚀 Verificamos o teu kit.</b>";
+            } else {
+                statusDiv.innerHTML = "<b style='color:var(--danger);'>O Contrato rejeitou o Mint.</b>";
+            }
         } catch (err) {
-            statusDiv.innerText = "Falha no Mint. Verifica o saldo ou se já mintaste.";
             console.error(err);
+            statusDiv.innerHTML = `<b style='color:var(--danger);'>Erro: ${err.reason || "Saldo ou Mint já feito."}</b>`;
         }
     };
 </script>
