@@ -19,7 +19,7 @@
 <body>
     <div class="container">
         <h1>Tempo Hub</h1>
-        <p id="netLabel" style="color: var(--primary); font-size: 0.8rem; margin-bottom: 1.5rem;">Network: Moderato (Live)</p>
+        <p style="color: var(--primary); font-size: 0.8rem; margin-bottom: 1.5rem;">Network: Moderato (Live)</p>
         
         <div id="setup">
             <p>Conecta a tua Rabby Wallet:</p>
@@ -35,13 +35,15 @@
     </div>
 
 <script>
-    // ENDEREÇO CORRIGIDO (0x20c0...5c2dcd5) baseado na image_15e2e0.png
+    // ENDEREÇO CORRIGIDO: 0x20c000000000000000000000000000005c2dcd5
     const CONTRACT_ADDRESS = "0x20c000000000000000000000000000005c2dcd5";
+    
+    // ABI para a nova função 'mint' detetada no explorador
     const ABI = ["function mint(address to, uint256 amount) public"];
     
     let selectedProvider = null;
 
-    // Detetar Rabby
+    // 1. Deteção da Rabby via EIP-6963
     window.addEventListener("eip6963:announceProvider", (event) => {
         if (event.detail.info.name !== "Rabby Wallet") return;
         const div = document.createElement("div");
@@ -54,7 +56,7 @@
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = "Pronto para o Mint.";
+                document.getElementById('status').innerText = "Ligado à rede Moderato.";
             } catch (err) {
                 document.getElementById('status').innerText = "Conexão cancelada.";
             }
@@ -65,18 +67,18 @@
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-    // Lógica do Mint corrigida
+    // 2. Lógica de Mint (Baseada na transação de sucesso)
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
         try {
-            status.innerText = "A validar na rede...";
+            status.innerText = "A validar transação na Moderato...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const userAddress = await signer.getAddress();
             
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // 9.982.000 tokens conforme image_15e2e0.png
+            // Quantidade de tokens conforme transação bem-sucedida
             const amount = ethers.BigNumber.from("9982000000000000000000000"); 
 
             status.innerText = "Assina o Mint na Rabby...";
@@ -85,13 +87,14 @@
                 gasLimit: 300000 
             });
             
-            status.innerHTML = "<b>Transação enviada!</b><br>A aguardar bloco...";
+            status.innerHTML = "<b>Transação enviada!</b><br>A aguardar confirmação...";
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Mint Concluído 🚀</b>";
             
         } catch (err) {
             console.error(err);
-            status.innerHTML = `<b style="color:var(--danger);">Erro no Mint</b><br><small>${err.message || "Erro desconhecido"}</small>`;
+            // Captura o erro específico para ajudar no diagnóstico
+            status.innerHTML = `<b style="color:var(--danger);">Erro no Mint</b><br><small>${err.reason || err.message}</small>`;
         }
     };
 </script>
