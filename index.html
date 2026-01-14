@@ -15,22 +15,20 @@
         .btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(56, 189, 248, 0.4); }
         #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; line-height: 1.4; }
         .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 6px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 1rem; display: inline-block; }
-        /* Estilo do novo botão do explorador */
-        .explorer-link { display: inline-block; margin-top: 15px; color: var(--primary); text-decoration: none; font-weight: bold; font-size: 0.8rem; border: 1px solid var(--primary); padding: 8px 15px; border-radius: 8px; transition: 0.3s; }
-        .explorer-link:hover { background: var(--primary); color: var(--bg); }
+        .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="badge">Moderato Network Live</div>
+    <div class="badge">Moderato Testnet Live</div>
     <h1>Tempo Hub</h1>
-    <p>Claim your exclusive Starter Kit on the new Tempo Network era.</p>
+    <p>Claim your exclusive Starter Kit on the Moderato Network.</p>
     
     <button class="btn" id="mintBtn">Connect & Claim</button>
     
-    <div id="status">Ready to initialize transaction</div>
-    <div id="explorer-container"></div>
+    <div id="status">Ready to initialize</div>
+    <a id="txLink" href="#" target="_blank" class="explorer-link">View Transaction Proof</a>
 </div>
 
 <script>
@@ -41,30 +39,29 @@
         if (!window.ethereum) return alert("Please install Rabby Wallet!");
         
         const statusDiv = document.getElementById('status');
-        const explorerContainer = document.getElementById('explorer-container');
+        const txLink = document.getElementById('txLink');
         
         try {
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
-            
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-            statusDiv.innerText = "Waiting for wallet signature...";
 
+            statusDiv.innerText = "Check your wallet to sign...";
             const tx = await contract.mintStarterKit({ gasLimit: 150000 });
 
-            statusDiv.innerHTML = "Transaction sent!<br>Waiting for confirmation...";
+            statusDiv.innerHTML = "Transaction sent! Waiting for block...";
             
-            // Criar o link do explorador mal a transação é enviada
-            const explorerUrl = `https://explorer.testnet.tempo.xyz/tx/${tx.hash}`;
-            explorerContainer.innerHTML = `<a href="${explorerUrl}" target="_blank" class="explorer-link">🔍 VIEW TRANSACTION ON EXPLORER</a>`;
+            // Link atualizado para o novo domínio do explorador
+            txLink.href = `https://explorer.moderato.tempo.xyz/tx/${tx.hash}`;
+            txLink.style.display = "inline-block";
 
             await tx.wait();
-            statusDiv.innerHTML = "<b style='color:#22c55e; font-size:1.1rem;'>CLAIM SUCCESSFUL! 🚀</b><br>Your kit is secured.";
+            statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCCESSFULLY CLAIMED! 🚀</b>";
 
         } catch (err) {
             console.error(err);
-            statusDiv.innerText = "Note: If you already claimed, the network will not allow a second request.";
+            statusDiv.innerText = "Error: Check your balance or if you already claimed.";
         }
     };
 </script>
