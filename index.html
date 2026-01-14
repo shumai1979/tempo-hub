@@ -39,7 +39,7 @@
     let selectedProvider = null;
     const announcedProviders = new Set();
 
-    // 1. Detetar Carteiras com Isolamento de Conflitos (EIP-6963)
+    // 1. Detetar Carteiras (Resolve erros image_e14934 e image_e1c8d4)
     window.addEventListener("eip6963:announceProvider", (event) => {
         const info = event.detail.info;
         if (announcedProviders.has(info.rdns)) return;
@@ -54,34 +54,35 @@
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = `Conectado via ${info.name}`;
-            } catch (err) { document.getElementById('status').innerText = "Erro na conexão."; }
+                document.getElementById('status').innerText = `Ligado via ${info.name}`;
+            } catch (err) { document.getElementById('status').innerText = "Conexão cancelada."; }
         };
         document.getElementById('walletList').appendChild(div);
         document.getElementById('status').innerText = "Escolhe uma carteira acima.";
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-    // 2. Lógica do Mint (Otimizada para Stablecoin Gas)
+    // 2. Lógica do Mint (Ajustada para o erro CALL_EXCEPTION das imagens)
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
         try {
-            status.innerText = "A validar via Tempo Network...";
+            status.innerText = "A validar via Tempo (Stablecoin Gas)...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // Forçar gasLimit para ignorar falhas de simulação causadas por falta de token nativo convencional
-            const tx = await contract.mintStarterKit({ gasLimit: 400000 });
-            status.innerText = "A processar na Blockchain...";
+            // Forçamos o gasLimit para evitar falhas de simulação (image_e1ccb0)
+            const tx = await contract.mintStarterKit({ gasLimit: 500000 });
+            status.innerText = "Enviado! A aguardar confirmação...";
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
         } catch (err) {
             console.error(err);
-            if (err.message.includes("reverted")) {
-                status.innerHTML = "<b style='color:var(--danger);'>O contrato rejeitou. Verifica se já fizeste o mint nesta conta.</b>";
+            // Se o erro for CALL_EXCEPTION, o contrato rejeitou a lógica (image_e1bdf2)
+            if (err.code === 'CALL_EXCEPTION' || err.message.includes("reverted")) {
+                status.innerHTML = "<b style='color:var(--danger);'>O contrato rejeitou. Verificaste se já fizeste o mint ou se tens PathUSD?</b>";
             } else {
-                status.innerText = "Erro: Confirma se tens PathUSD para as taxas.";
+                status.innerText = "Erro: Verifica as taxas ou a conexão.";
             }
         }
     };
@@ -94,7 +95,6 @@
             const signer = provider.getSigner();
             const addr = await signer.getAddress();
             status.innerText = "A assinar teste de rede...";
-            // Envio de 0 ETH para testar apenas a assinatura e conexão usando PathUSD como fundo
             const tx = await signer.sendTransaction({ to: addr, value: 0 });
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>LIGAÇÃO 100% OK! 📡</b>";
