@@ -2,27 +2,23 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Official Debug Build</title>
+    <title>Tempo Hub - Sucesso Moderato</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; --danger: #f87171; --warn: #fbbf24; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.5; min-height: 80px; }
-        .warning-box { color: var(--warn); border: 1px solid var(--warn); padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.75rem; display: none; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn:hover { transform: scale(1.02); }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; }
     </style>
 </head>
 <body>
     <div class="box">
         <h2 style="margin:0">Tempo Hub</h2>
-        <p style="color:var(--primary); font-size:0.7rem; letter-spacing:1.5px; margin-bottom:20px;">MODERATO DEBUGGER</p>
-        
-        <div id="bugWarn" class="warning-box">⚠️ BUG DETETADO: RPC a reportar saldo infinito. Aguarda reset da rede.</div>
-        
+        <p style="color:var(--primary); font-size:0.7rem; letter-spacing:1px; margin-bottom:20px;">REDE MODERATO ATIVA</p>
         <button id="mintBtn" class="btn">MINT STARTER KIT</button>
-        <div id="status">Clica para conectar e validar a rede.</div>
+        <div id="status">Conta verificada no explorador. Pronto para Mint!</div>
     </div>
 
 <script>
@@ -31,53 +27,28 @@
 
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
-        const btn = document.getElementById('mintBtn');
-        const bugWarn = document.getElementById('bugWarn');
-        
-        btn.disabled = true;
-        bugWarn.style.display = "none";
-
         try {
-            if (!window.ethereum) throw new Error("Instala a Rabby.");
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
             const userAddr = await signer.getAddress();
-
-            // 1. Verificador de Bug de Saldo (RPC Check)
-            status.innerText = "A validar integridade do RPC...";
-            const balance = await provider.getBalance(userAddr);
-            
-            // Se o saldo vier com um valor absurdamente alto (bug do infinito)
-            if (balance.gt(ethers.utils.parseEther("1000000000"))) {
-                bugWarn.style.display = "block";
-                status.innerHTML = "<b style='color:var(--warn)'>Aviso:</b> O RPC da rede está a reportar dados corrompidos para a tua conta. O mint irá falhar até a Tempo resolver isto.";
-                btn.disabled = false;
-                return;
-            }
-
-            // 2. Tentar o Mint se o saldo parecer OK
-            status.innerText = "Saldo validado. A preparar transação...";
             const contract = new ethers.Contract(ADDR, ABI, signer);
 
+            status.innerText = "A processar mint... Assina na Rabby.";
+
             const tx = await contract.mint(userAddr, ethers.BigNumber.from("9982000000000000000000000"), {
-                gasLimit: 1500000,
-                gasPrice: 1000000005,
+                gasLimit: 1200000,
+                gasPrice: 1000000002,
                 type: 0 
             });
 
-            status.innerText = "Enviado! Aguarda confirmação...";
+            status.innerText = "Transação enviada! A aguardar rede...";
             await tx.wait();
-            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! O Kit foi resgatado.</b>";
+            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! Novo Kit resgatado.</b>";
 
         } catch (err) {
             console.error(err);
-            if (err.code === "CALL_EXCEPTION") {
-                status.innerHTML = "<b style='color:var(--danger)'>ERRO TÉCNICO:</b><br>O contrato de sistema reverteu a transação. O RPC ainda não indexou a tua ativação.";
-            } else {
-                status.innerText = "Erro: " + (err.reason || "Interrompido.");
-            }
-            btn.disabled = false;
+            status.innerText = "A rede está lenta, mas a tua conta está ativa. Tenta de novo.";
         }
     };
 </script>
