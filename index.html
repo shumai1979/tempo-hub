@@ -6,7 +6,7 @@
     <title>Tempo Hub</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 3rem; border-radius: 24px; box-shadow: 0 0 50px rgba(56, 189, 248, 0.2); border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 400px; width: 90%; }
         h1 { color: var(--primary); font-size: 2.5rem; margin-bottom: 0.5rem; letter-spacing: -1px; font-weight: 800; }
@@ -14,7 +14,7 @@
         .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem 2rem; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; transition: 0.3s; font-size: 1.1rem; text-transform: uppercase; }
         .btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(56, 189, 248, 0.4); }
         .btn:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; opacity: 0.7; }
-        #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; line-height: 1.4; min-height: 40px; }
+        #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; line-height: 1.4; min-height: 45px; }
         .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 6px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 1rem; display: inline-block; }
         .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; cursor: pointer; font-weight: bold; }
     </style>
@@ -33,7 +33,6 @@
 </div>
 
 <script>
-    // Configurações do Contrato
     const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037"; 
     const ABI = [
         "function mintStarterKit() public payable",
@@ -45,45 +44,33 @@
     const txLink = document.getElementById('txLink');
 
     mintBtn.onclick = async () => {
-        // 1. Verificar se existe carteira
-        if (!window.ethereum) {
-            return alert("Wallet not found! Please install Rabby or MetaMask.");
-        }
+        if (!window.ethereum) return alert("Please install a Web3 Wallet!");
         
         try {
-            // 2. Pedir conexão explicitamente (Acorda a Rabby)
-            statusDiv.innerText = "Connecting to wallet...";
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             const accounts = await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
-            const userAddress = accounts[0];
-            
+            const address = accounts[0];
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // 3. Verificar se já resgatou (com proteção de erro)
-            try {
-                statusDiv.innerText = "Checking status...";
-                const claimed = await contract.hasClaimed(userAddress);
-                if (claimed) {
-                    statusDiv.innerHTML = "<b style='color:#f87171;'>You have already claimed!</b>";
-                    mintBtn.innerText = "ALREADY CLAIMED";
-                    mintBtn.disabled = true;
-                    return;
-                }
-            } catch (e) {
-                console.log("Contract check skipped, proceeding to mint.");
+            statusDiv.innerText = "Checking your status...";
+            
+            // Verifica se a carteira já resgatou antes de tentar transacionar
+            const alreadyClaimed = await contract.hasClaimed(address);
+            if (alreadyClaimed) {
+                statusDiv.innerHTML = "<b style='color:#f87171;'>You have already claimed your kit!</b>";
+                mintBtn.innerText = "ALREADY CLAIMED";
+                mintBtn.disabled = true;
+                return;
             }
 
-            // 4. Executar o Mint
-            statusDiv.innerText = "Waiting for signature...";
+            statusDiv.innerText = "Please sign the transaction...";
             const tx = await contract.mintStarterKit({ gasLimit: 150000 });
 
-            // 5. Mostrar link do explorer imediatamente
             statusDiv.innerHTML = "Transaction sent! Waiting for block...";
             txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
             txLink.style.display = "inline-block";
 
-            // 6. Esperar confirmação final
             await tx.wait();
             statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCCESSFULLY CLAIMED! 🚀</b>";
             mintBtn.innerText = "CLAIMED";
@@ -91,7 +78,12 @@
 
         } catch (err) {
             console.error(err);
-            statusDiv.innerText = "Transaction canceled or failed.";
+            // Se o erro for porque já resgatou (caso a verificação falhe)
+            if (err.message.includes("execution reverted")) {
+                statusDiv.innerHTML = "<b style='color:#f87171;'>Already claimed or insufficient funds.</b>";
+            } else {
+                statusDiv.innerText = "Transaction canceled or failed.";
+            }
         }
     };
 </script>
