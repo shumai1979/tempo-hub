@@ -12,15 +12,14 @@
         .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
         .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; text-align: left; }
         .wallet-option img { width: 30px; margin-right: 15px; border-radius: 4px; }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.6; }
-        a { color: var(--primary); text-decoration: none; font-weight: bold; }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Tempo Hub</h1>
-        <p style="color: var(--primary); font-size: 0.8rem; margin-bottom: 1rem;">Rede Moderato - Verificação Ativa</p>
+        <p style="color: var(--primary); font-size: 0.8rem; margin-bottom: 1.5rem;">Network: Moderato (Live)</p>
         
         <div id="setup">
             <p>Conecta a tua Rabby Wallet:</p>
@@ -28,19 +27,23 @@
         </div>
 
         <div id="action" class="hidden">
+            <p style="color:var(--success); font-weight: bold; margin-bottom: 1rem;">✓ Carteira Conectada</p>
             <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
         </div>
 
-        <div id="status">A procurar extensões...</div>
+        <div id="status">A procurar Rabby...</div>
     </div>
 
 <script>
-    // Endereço antigo que estamos a tentar "validar" ou substituir
-    const OLD_CONTRACT = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
-    const ABI = ["function mintStarterKit() public payable"];
+    // NOVO CONTRATO DETETADO NA REDE MODERATO (Jan 2026)
+    const CONTRACT_ADDRESS = "0x20c000000000000000000000000000005c2dcd5";
+    
+    // ABI atualizada para a função 'mint' da nova rede
+    const ABI = ["function mint(address to, uint256 amount) public"];
+    
     let selectedProvider = null;
 
-    // 1. Deteção EIP-6963 (Corrige conflitos image_e14934)
+    // 1. Deteção da Rabby (EIP-6963)
     window.addEventListener("eip6963:announceProvider", (event) => {
         if (event.detail.info.name !== "Rabby Wallet") return;
         const div = document.createElement("div");
@@ -53,43 +56,44 @@
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = "Ligado à Moderato. Pronto para o Mint.";
-            } catch (err) { document.getElementById('status').innerText = "Erro na ligação."; }
+                document.getElementById('status').innerText = "Ligado à rede Moderato.";
+            } catch (err) {
+                document.getElementById('status').innerText = "Conexão cancelada.";
+            }
         };
         document.getElementById('walletList').innerHTML = "";
         document.getElementById('walletList').appendChild(div);
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-    // 2. Lógica de Mint com "Detetive de Erros"
+    // 2. Lógica de Mint (Baseada na transação de sucesso 15e2e0)
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
         try {
-            status.innerText = "A enviar transação... Verifica a Rabby.";
+            status.innerText = "A validar transação na Moderato...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
-            const contract = new ethers.Contract(OLD_CONTRACT, ABI, signer);
+            const userAddress = await signer.getAddress();
+            
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // Forçamos gasLimit alto para aceitar PathUSD (image_e1ba0a)
-            const tx = await contract.mintStarterKit({ gasLimit: 400000 });
+            // Quantidade de tokens (usando o valor da transação de sucesso)
+            const amount = ethers.utils.parseUnits("9982000", 0); 
+
+            status.innerText = "Assina o Mint na Rabby...";
+            
+            // Executa a transação com gasLimit manual para evitar erros de saldo nativo
+            const tx = await contract.mint(userAddress, amount, {
+                gasLimit: 300000 
+            });
             
             status.innerHTML = "<b>Transação enviada!</b><br>A aguardar confirmação...";
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
+            
         } catch (err) {
             console.error(err);
-            // Se o contrato deu CALL_EXCEPTION (image_e40ab1), vamos investigar
-            if (err.message.includes("CALL_EXCEPTION") || err.message.includes("reverted")) {
-                status.innerHTML = `
-                    <b style="color:var(--danger);">Contrato Antigo Detetado</b><br>
-                    A rede Moderato rejeitou este contrato.<br><br>
-                    <a href="https://explore.tempo.xyz/address/${OLD_CONTRACT}" target="_blank">1. Clica aqui para abrir o Explorador ↗</a><br>
-                    2. Vê se existem transações de "Mint" de outras pessoas hoje.<br>
-                    3. Se não existirem, o projeto mudou o contrato.
-                `;
-            } else {
-                status.innerText = "Erro: " + (err.reason || "Verifica o teu saldo de PathUSD.");
-            }
+            status.innerHTML = `<b style="color:var(--danger);">Erro no Mint</b><br><small>${err.reason || "Verifica o teu saldo de PathUSD/ThetaUSD."}</small>`;
         }
     };
 </script>
