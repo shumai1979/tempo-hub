@@ -15,13 +15,13 @@
         .btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(56, 189, 248, 0.4); }
         #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; line-height: 1.4; }
         .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 6px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 1rem; display: inline-block; }
-        .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; cursor: pointer; }
+        .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="badge">Moderato Testnet Live</div>
+    <div class="badge">Tempo Network Live</div>
     <h1>Tempo Hub</h1>
     <p>Claim your exclusive Starter Kit on the Moderato Network.</p>
     
@@ -52,8 +52,8 @@
 
             statusDiv.innerHTML = "Transaction sent! Waiting for block...";
             
-            // Link atualizado para o novo domínio do explorador
-            txLink.href = `https://explorer.moderato.tempo.xyz/tx/${tx.hash}`;
+            // LINK CORRIGIDO BASEADO NO TEU EXEMPLO
+            txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
             txLink.style.display = "inline-block";
 
             await tx.wait();
