@@ -2,68 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Moderato Final</title>
+    <title>Tempo Hub - Official Moderato v5.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
         body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 350px; }
-        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; line-height: 1.4; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        #status { margin-top: 1.5rem; font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2 style="margin-bottom: 5px;">Tempo Hub</h2>
-        <p style="color: var(--primary); font-size: 0.7rem; margin-bottom: 25px;">MODERATO TESTNET</p>
-        <button id="mintBtn" class="btn">CONECTAR E MINT</button>
-        <div id="status">Aguardando interação com a Rabby...</div>
+    <div class="container">
+        <h2 style="margin:0">Tempo Moderato</h2>
+        <p style="color:var(--primary); font-size:0.7rem; letter-spacing:1px;">OFFICIAL CONNECTION</p>
+        <button id="mintBtn" class="btn">MINT STARTER KIT</button>
+        <div id="status">Verifica os detalhes de conexão abaixo.</div>
     </div>
 
 <script>
-    const ADDR = "0x20c0000000000000000000000000000000000005";
+    // Detalhes extraídos diretamente de docs.tempo.xyz
+    const MODERATO_PARAMS = {
+        chainId: "0xa5bf", // 42431
+        chainName: "Tempo Testnet (Moderato)",
+        nativeCurrency: { name: "USD", symbol: "USD", decimals: 18 },
+        rpcUrls: ["https://rpc.moderato.tempo.xyz"],
+        blockExplorerUrls: ["https://explore.tempo.xyz"]
+    };
+
+    const CONTRACT_ADDR = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
 
     document.getElementById('mintBtn').onclick = async () => {
-        const btn = document.getElementById('mintBtn');
         const status = document.getElementById('status');
-        btn.disabled = true;
-
         try {
             if (!window.ethereum) throw new Error("Instala a Rabby.");
+            
+            // 1. Forçar a rede correta (Solução da Doc)
+            status.innerText = "A configurar rede Moderato...";
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [MODERATO_PARAMS]
+                });
+            } catch (e) { /* Já existe */ }
+
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
-            const userAddr = await signer.getAddress();
-            const contract = new ethers.Contract(ADDR, ABI, signer);
             
-            status.innerText = "A chamar a Rabby... Assina a transação.";
+            status.innerText = "Assina a transação na Rabby...";
+            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
 
-            // Valor exato TIP-20
-            const val = ethers.BigNumber.from("9982000000000000000000000");
-
-            const tx = await contract.mint(userAddr, val, {
-                gasLimit: 1200000, 
-                gasPrice: 1000000005,
-                type: 0 // Legacy para compatibilidade Moderato
+            // 2. Executar Mint com o Gas configurado para TIP-20
+            const tx = await contract.mint(await signer.getAddress(), ethers.BigNumber.from("9982000000000000000000000"), {
+                gasLimit: 1000000,
+                gasPrice: 1000000002,
+                type: 0 // Importante: Tempo prefere transações legacy
             });
 
-            status.innerText = "Transação enviada! Aguarda a blockchain...";
+            status.innerText = "Enviado! Aguarda a confirmação final...";
             await tx.wait();
-            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! O Kit está na conta.</b>";
+            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! Kit Recebido.</b>";
 
         } catch (err) {
-            console.error("DEBUG:", err);
-            if (err.message.includes("429")) {
-                status.innerText = "Erro 429: Rede sobrecarregada. Tenta em 30 segundos.";
-            } else if (err.code === "CALL_EXCEPTION") {
-                status.innerHTML = "<b style='color:var(--danger)'>O contrato rejeitou o pedido.</b><br>Verifica se ativaste a conta via Bridge.";
+            console.error(err);
+            if (err.code === "CALL_EXCEPTION") {
+                status.innerHTML = "<b>Erro de Sistema:</b> O contrato rejeitou. De acordo com os docs, isto significa que a tua conta ainda não tem o status 'Active'. Usa o faucet em testnet.tempo.xyz primeiro.";
             } else {
-                status.innerText = "Erro: A carteira não respondeu corretamente.";
+                status.innerText = "Erro: " + (err.message || "Tenta novamente.");
             }
-        } finally {
-            btn.disabled = false;
         }
     };
 </script>
