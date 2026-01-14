@@ -17,12 +17,9 @@
         #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; line-height: 1.4; min-height: 50px; }
         .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 6px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 1rem; display: inline-block; }
         .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; cursor: pointer; font-weight: bold; }
-        
-        /* Estilo do Rodapé */
-        footer { font-size: 0.75rem; color: #475569; text-align: center; }
+        footer { font-size: 0.75rem; color: #475569; text-align: center; padding-bottom: 20px; }
         footer a { color: #64748b; text-decoration: none; margin: 0 10px; transition: 0.3s; }
         footer a:hover { color: var(--primary); }
-        .divider { color: #1e293b; }
     </style>
 </head>
 <body>
@@ -31,8 +28,75 @@
     <div class="badge">Moderato Testnet</div>
     <h1>Tempo Hub</h1>
     <p>Secure your exclusive Starter Kit on the official Tempo Network ecosystem.</p>
-    
     <button class="btn" id="mintBtn">Connect & Claim</button>
-    
     <div id="status">Ready to initialize</div>
-    <a id="txLink" href="#" target="_blank
+    <a id="txLink" href="#" target="_blank" class="explorer-link">View Transaction Proof</a>
+</div>
+
+<footer>
+    <p>
+        <a href="https://tempo.xyz/" target="_blank">Official Website</a> | 
+        <a href="https://github.com/tempoxyz" target="_blank">GitHub</a> | 
+        <a href="https://explorer.tempo.xyz/" target="_blank">Explorer</a>
+    </p>
+</footer>
+
+<script>
+    const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037"; 
+    const ABI = [
+        "function mintStarterKit() public payable",
+        "function hasClaimed(address) public view returns (bool)"
+    ];
+
+    const mintBtn = document.getElementById('mintBtn');
+    const statusDiv = document.getElementById('status');
+    const txLink = document.getElementById('txLink');
+
+    mintBtn.onclick = async () => {
+        // Detetar provider com suporte a múltiplos injects
+        const provider_source = window.ethereum;
+        
+        if (!provider_source) {
+            return alert("No wallet found. Please enable Rabby or MetaMask.");
+        }
+        
+        try {
+            statusDiv.innerText = "Connecting...";
+            const provider = new ethers.providers.Web3Provider(provider_source, "any");
+            
+            // Forçar pedido de contas
+            const accounts = await provider.send("eth_requestAccounts", []);
+            const signer = provider.getSigner();
+            const address = accounts[0];
+            
+            statusDiv.innerText = "Verifying eligibility...";
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            
+            const alreadyClaimed = await contract.hasClaimed(address);
+            if (alreadyClaimed) {
+                statusDiv.innerHTML = "<b style='color:var(--danger);'>Already claimed with this wallet.</b>";
+                mintBtn.innerText = "CLAIMED";
+                mintBtn.disabled = true;
+                return;
+            }
+
+            statusDiv.innerText = "Check your wallet to sign...";
+            const tx = await contract.mintStarterKit({ gasLimit: 150000 });
+
+            statusDiv.innerHTML = "Transaction sent! Waiting for block...";
+            txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
+            txLink.style.display = "inline-block";
+
+            await tx.wait();
+            statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCCESSFULLY CLAIMED! 🚀</b>";
+            mintBtn.innerText = "COMPLETE";
+            mintBtn.disabled = true;
+
+        } catch (err) {
+            console.error("Interaction Error:", err);
+            statusDiv.innerText = "Connection failed. Please ensure only ONE wallet is active.";
+        }
+    };
+</script>
+</body>
+</html>
