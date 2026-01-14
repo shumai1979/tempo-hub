@@ -3,25 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub - Official Mint</title>
+    <title>Tempo Hub - Moderato Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; transition: 0.2s; }
-        .btn-mint:hover { opacity: 0.9; transform: scale(1.02); }
+        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
         .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; text-align: left; }
         .wallet-option:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
         .wallet-option img { width: 30px; margin-right: 15px; border-radius: 4px; }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; min-height: 50px; }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; min-height: 60px; }
         .hidden { display: none; }
-    </small></style>
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>Tempo Hub</h1>
-        <p style="color: var(--primary); font-size: 0.8rem; margin-bottom: 1.5rem;">Network: Moderato (Live)</p>
+        <p style="color: var(--primary); font-size: 0.8rem; margin-bottom: 1.5rem;">Moderato Testnet (Active)</p>
         
         <div id="setup">
             <p>Conecta a tua Rabby Wallet:</p>
@@ -29,21 +28,22 @@
         </div>
 
         <div id="action" class="hidden">
-            <p style="color:var(--success); font-weight: bold; margin-bottom: 1rem;">✓ Carteira Pronta</p>
+            <p style="color:var(--success); font-weight: bold; margin-bottom: 1rem;">✓ Carteira Conectada</p>
             <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
         </div>
 
-        <div id="status">A procurar extensões...</div>
+        <div id="status">A detetar Rabby...</div>
     </div>
 
 <script>
-    // Endereço do Contrato de Sistema Moderato (0x20c0...0005)
+    // Configurações da nova rede Moderato (conforme a página que enviaste)
+    const MODERATO_CHAIN_ID = "0xa5bf"; // 42431 em decimal
     const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
     
     let selectedProvider = null;
 
-    // 1. Deteção da Rabby via EIP-6963 (Evita erros de consola)
+    // 1. Deteção da Rabby e Troca de Rede Automática
     window.addEventListener("eip6963:announceProvider", (event) => {
         if (event.detail.info.name !== "Rabby Wallet") return;
         const div = document.createElement("div");
@@ -53,14 +53,60 @@
             try {
                 selectedProvider = event.detail.provider;
                 const p = new ethers.providers.Web3Provider(selectedProvider);
+                
+                // Forçar a troca para a rede Moderato (Chain ID 42431)
+                try {
+                    await selectedProvider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: MODERATO_CHAIN_ID }],
+                    });
+                } catch (switchError) {
+                    // Se a rede não estiver na Rabby, este código ajuda o utilizador
+                    document.getElementById('status').innerText = "Por favor, adiciona a rede Moderato à Rabby.";
+                }
+
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = "Conectado. Carrega em Mint.";
+                document.getElementById('status').innerText = "Ligado à Moderato.";
             } catch (err) {
-                document.getElementById('status').innerText = "Erro na ligação.";
+                document.getElementById('status').innerText = "Erro na conexão.";
             }
         };
         document.getElementById('walletList').innerHTML = "";
         document.getElementById('walletList').appendChild(div);
-        document.getElementById('status').innerText =
+    });
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+    // 2. Lógica de Mint (Ajustada para o novo sistema)
+    document.getElementById('mintBtn').onclick = async () => {
+        const status = document.getElementById('status');
+        try {
+            status.innerText = "A processar na rede Moderato...";
+            const provider = new ethers.providers.Web3Provider(selectedProvider);
+            const signer = provider.getSigner();
+            const userAddress = await signer.getAddress();
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+            // Valor de 9.982.000 tokens (sem decimais excessivos para contratos de sistema)
+            const amount = ethers.BigNumber.from("9982000"); 
+
+            status.innerHTML = "<b>Assina na Rabby agora.</b><br>Ignora avisos de 'Simulation Failed'.";
+            
+            const tx = await contract.mint(userAddress, amount, {
+                gasLimit: 1000000, // Limite alto para garantir sucesso na nova rede
+                gasPrice: 1000000002 // Preço fixo da Moderato
+            });
+            
+            status.innerHTML = "<b>Pendente...</b><br>A aguardar confirmação na Moderato.";
+            await tx.wait();
+            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! O Kit foi resgatado. 🚀</b>";
+            
+        } catch (err) {
+            console.error(err);
+            status.innerHTML = `<b style="color:var(--danger);">Falha:</b><br><small>O contrato de sistema rejeitou o pedido. Verifica se tens AlphaUSD para a taxa.</small>`;
+        }
+    };
+</script>
+</body>
+</html>
