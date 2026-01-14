@@ -36,11 +36,17 @@
 
             status.innerText = "A processar mint... Assina na Rabby.";
 
-            const tx = await contract.mint(userAddr, ethers.BigNumber.from("9982000000000000000000000"), {
-                gasLimit: 1200000,
-                gasPrice: 1000000002,
-                type: 0 
-            });
+            <script>
+    // ... dentro da função executeMint()
+    
+    // O explorador mostra que as taxas foram pagas em frações mínimas
+    // Vamos ajustar o gasLimit para ser exatamente o que a rede processou com sucesso
+    const tx = await contract.mint(userAddr, ethers.utils.parseEther("9982000"), {
+        gasLimit: 300000, // Ajustado conforme as transações bem-sucedidas no teu histórico
+        gasPrice: 1000000002,
+        type: 0 
+    });
+</script>
 
             status.innerText = "Transação enviada! A aguardar rede...";
             await tx.wait();
@@ -54,3 +60,4 @@
 </script>
 </body>
 </html>
+
