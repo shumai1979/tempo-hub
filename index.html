@@ -66,23 +66,38 @@
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
     // 2. Lógica do Mint
+    // No teu script, substitui a parte do Mint por esta:
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
+        if (!selectedProvider) return status.innerText = "Escolhe uma carteira primeiro!";
+        
         try {
-            status.innerText = "A validar com o contrato...";
+            status.innerText = "A ligar à rede Moderato...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider.getSigner());
+            const signer = provider.getSigner();
+            
+            // Verificação de Saldo antes de tentar
+            const balance = await provider.getBalance(await signer.getAddress());
+            if (balance.eq(0)) {
+                throw new Error("Precisas de tokens nativos para pagar o gás.");
+            }
 
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            status.innerText = "Assina na carteira...";
+            
             const tx = await contract.mintStarterKit({ gasLimit: 300000 });
-            status.innerText = "Enviado! A aguardar rede...";
+            status.innerText = "A processar na Blockchain...";
             await tx.wait();
-            status.innerHTML = `<b style='color:var(--success);'>SUCESSO NO MINT! 🚀</b>`;
+            status.innerHTML = "<b style='color:#22c55e;'>SUCESSO! Kit Resgatado 🚀</b>";
+            
         } catch (err) {
             console.error(err);
-            status.innerHTML = `<b style='color:var(--danger);'>Contrato Rejeitou: Provável limite de conta ou stock.</b>`;
+            const msg = err.message.toLowerCase();
+            if (msg.includes("insufficient")) status.innerText = "ERRO: Saldo insuficiente para gás.";
+            else if (msg.includes("reverted")) status.innerText = "O contrato rejeitou (Limite atingido).";
+            else status.innerText = "Erro: " + (err.reason || "Interação cancelada.");
         }
     };
-
     // 3. Lógica do Teste (Self-Transfer)
     document.getElementById('testBtn').onclick = async () => {
         const status = document.getElementById('status');
@@ -105,3 +120,4 @@
 </script>
 </body>
 </html>
+
