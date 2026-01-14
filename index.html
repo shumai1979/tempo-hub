@@ -2,66 +2,97 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Final Fix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tempo Hub - Moderato Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 400px; border: 1px solid #334155; }
-        .btn { background: var(--primary); color: #0f172a; border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        #status { margin-top: 1rem; font-size: 0.9rem; color: #94a3b8; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
+        body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; transition: 0.2s; }
+        .wallet-option:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
+        .wallet-option img { width: 30px; height: 30px; margin-right: 15px; border-radius: 4px; }
+        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.5; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Tempo Hub</h2>
-        <div id="walletMenu">A procurar Rabby...</div>
-        <div id="controls" style="display:none">
-            <button id="mintBtn" class="btn">MINT STARTER KIT</button>
-            <p id="status">Pronto para testar.</p>
+        <h1>Tempo Hub</h1>
+        <p style="font-size: 0.8rem; color: var(--primary);">Rede: Moderato (Online)</p>
+        
+        <div id="setup">
+            <p>Conecta a tua Rabby Wallet:</p>
+            <div id="walletList"></div>
         </div>
+
+        <div id="action" class="hidden">
+            <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
+        </div>
+
+        <div id="status">A procurar Rabby...</div>
     </div>
 
 <script>
-    const CONTRACT = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
+    // Este contrato pode estar em manutenção devido à migração de 8 Jan.
+    const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
     const ABI = ["function mintStarterKit() public payable"];
-    let signer;
+    let selectedProvider = null;
 
-    // Resolve conflitos de múltiplas carteiras (image_e14934)
-    window.addEventListener("eip6963:announceProvider", (e) => {
-        if (e.detail.info.name === "Rabby Wallet") {
-            const btn = document.createElement("button");
-            btn.className = "btn";
-            btn.innerText = "Conectar Rabby";
-            btn.onclick = async () => {
-                const p = new ethers.providers.Web3Provider(e.detail.provider);
+    // 1. Detetar Carteira (Padrão EIP-6963 para evitar conflitos)
+    window.addEventListener("eip6963:announceProvider", (event) => {
+        const info = event.detail.info;
+        if (info.name !== "Rabby Wallet") return;
+
+        const div = document.createElement("div");
+        div.className = "wallet-option";
+        div.innerHTML = `<img src="${info.icon}"> <span>${info.name}</span>`;
+        div.onclick = async () => {
+            try {
+                selectedProvider = event.detail.provider;
+                const p = new ethers.providers.Web3Provider(selectedProvider);
                 await p.send("eth_requestAccounts", []);
-                signer = p.getSigner();
-                document.getElementById('walletMenu').style.display = 'none';
-                document.getElementById('controls').style.display = 'block';
-            };
-            document.getElementById('walletMenu').innerHTML = "";
-            document.getElementById('walletMenu').appendChild(btn);
-        }
+                document.getElementById('setup').classList.add('hidden');
+                document.getElementById('action').classList.remove('hidden');
+                document.getElementById('status').innerText = "Ligado com sucesso.";
+            } catch (err) {
+                document.getElementById('status').innerText = "Erro ao conectar.";
+            }
+        };
+        document.getElementById('walletList').innerHTML = "";
+        document.getElementById('walletList').appendChild(div);
+        document.getElementById('status').innerText = "Escolhe a carteira acima.";
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
+    // 2. Lógica do Mint Otimizada
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
         try {
-            status.innerText = "A enviar transação...";
-            // Definir gasLimit manual para evitar erros de simulação (image_e1ccb0)
-            const tx = await new ethers.Contract(CONTRACT, ABI, signer).mintStarterKit({ gasLimit: 300000 });
-            status.innerText = "Pendente na rede...";
+            status.innerText = "A processar na rede Moderato...";
+            const provider = new ethers.providers.Web3Provider(selectedProvider);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+            // A rede Tempo usa PathUSD para gás. Forçamos o limite para garantir execução.
+            const tx = await contract.mintStarterKit({ gasLimit: 500000 });
+            
+            status.innerHTML = "<b>Transação enviada!</b><br>A aguardar bloco...";
             await tx.wait();
-            status.innerHTML = "<b style='color:#22c55e'>SUCESSO!</b>";
+            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
+            
         } catch (err) {
             console.error(err);
-            // Identifica se o erro é falta de PathUSD ou regra do contrato (image_e22e4a)
-            if (err.message.includes("insufficient funds") || err.message.includes("PathUSD")) {
-                status.innerHTML = "<b style='color:#f87171'>Erro: Precisas de PathUSD para as taxas!</b>";
+            // Se o erro persistir, confirma se o contrato mudou no Discord do projeto
+            if (err.message.includes("reverted") || err.message.includes("CALL_EXCEPTION")) {
+                status.innerHTML = `
+                    <b style="color:var(--danger);">Erro de Rede (Moderato)</b><br>
+                    O contrato antigo foi desativado na migração de 8 Jan.<br>
+                    <a href="https://explore.tempo.xyz" target="_blank" style="color:var(--primary)">Verifica o novo contrato aqui ↗</a>
+                `;
             } else {
-                status.innerHTML = "<b style='color:#f87171'>O contrato rejeitou. Provavelmente já fizeste o mint.</b>";
+                status.innerText = "Erro: " + (err.reason || "Interação cancelada.");
             }
         }
     };
