@@ -2,70 +2,71 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Moderato v5.1</title>
+    <title>Tempo Hub - Final Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; --danger: #f87171; }
         body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .box { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 380px; }
+        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #status { margin-top: 1.5rem; font-size: 0.8rem; color: #94a3b8; line-height: 1.4; }
-        .err { color: var(--danger); font-weight: bold; }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.5; }
+        .ready { color: var(--success); font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="box">
-        <h2 style="margin:0">Tempo Moderato</h2>
-        <p style="color:var(--primary); font-size:0.7rem; letter-spacing:1px; margin-bottom:20px;">TIP-20 OFFICIAL BUILD</p>
-        <button id="mintBtn" class="btn">MINT STARTER KIT</button>
-        <div id="status">Certifica-te que usaste o Faucet em testnet.tempo.xyz antes de clicar.</div>
+        <h2 style="margin:0">Moderato Hub</h2>
+        <p style="color:var(--primary); font-size:0.7rem; margin-bottom:20px;">VERIFICADOR DE ATIVAÇÃO</p>
+        <button id="mintBtn" class="btn">VERIFICAR E MINT</button>
+        <div id="status">Aguardando ativação do Faucet...</div>
     </div>
 
 <script>
-    const MODERATO_PARAMS = {
-        chainId: "0xa5bf", 
-        rpcUrls: ["https://rpc.moderato.tempo.xyz"],
-        nativeCurrency: { name: "USD", symbol: "USD", decimals: 18 }
-    };
-
     const ADDR = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
 
     document.getElementById('mintBtn').onclick = async () => {
-        const btn = document.getElementById('mintBtn');
         const status = document.getElementById('status');
+        const btn = document.getElementById('mintBtn');
         btn.disabled = true;
 
         try {
-            if (!window.ethereum) throw new Error("Instala a Rabby.");
-            
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
             const userAddr = await signer.getAddress();
-            const contract = new ethers.Contract(ADDR, ABI, signer);
-            
-            status.innerText = "A validar ativação TIP-20 na rede...";
 
-            const tx = await contract.mint(userAddr, ethers.BigNumber.from("9982000000000000000000000"), {
-                gasLimit: 1000000,
+            // 1. Verificar Saldo Nativo (Ativação)
+            const balance = await provider.getBalance(userAddr);
+            if (balance.eq(0)) {
+                status.innerHTML = "A tua conta ainda aparece com <b style='color:red'>saldo zero</b>. O faucet ainda não foi processado pela rede.";
+                btn.disabled = false;
+                return;
+            }
+
+            status.innerHTML = "<span class='ready'>Conta Ativa!</span> A preparar transação de Mint...";
+            
+            const contract = new ethers.Contract(ADDR, ABI, signer);
+            const val = ethers.BigNumber.from("9982000000000000000000000");
+
+            const tx = await contract.mint(userAddr, val, {
+                gasLimit: 1200000,
                 gasPrice: 1000000002,
                 type: 0 
             });
 
-            status.innerText = "Transação enviada! Aguarda a confirmação...";
+            status.innerText = "Transação enviada! Aguarda a confirmação final...";
             await tx.wait();
-            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! Kit Resgatado.</b>";
+            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! O Kit foi resgatado.</b>";
 
         } catch (err) {
             console.error(err);
-            if (err.code === "CALL_EXCEPTION" || (err.data && err.data.includes("revert"))) {
-                status.innerHTML = "<span class='err'>Erro de Ativação:</span> O contrato rejeitou. Precisas de 'ativar' a tua carteira pedindo fundos em <a href='https://testnet.tempo.xyz' style='color:white'>testnet.tempo.xyz</a> e aguardar 15 minutos.";
+            if (err.code === "CALL_EXCEPTION") {
+                status.innerHTML = "A rede detetou o teu saldo, mas o contrato ainda não libertou o mint. Aguarda mais 5 minutos.";
             } else {
-                status.innerText = "Erro: " + (err.reason || "Interrompido pela carteira.");
+                status.innerText = "Erro: " + (err.reason || "Operação cancelada.");
             }
-        } finally {
             btn.disabled = false;
         }
     };
