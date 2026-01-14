@@ -2,77 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Smart Mint</title>
+    <title>Moderato Mint v4.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --warning: #fbbf24; --success: #22c55e; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .btn:disabled { opacity: 0.4; cursor: wait; }
-        #status-box { margin-top: 1.5rem; padding: 1rem; border-radius: 12px; font-size: 0.85rem; line-height: 1.4; background: rgba(255,255,255,0.03); min-height: 80px; display: flex; align-items: center; justify-content: center; }
-        .status-err { color: var(--danger); border: 1px solid var(--danger); }
-        .status-wait { color: var(--warning); border: 1px solid var(--warning); }
-        .status-ok { color: var(--success); border: 1px solid var(--success); }
+        body { background: #0f172a; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .box { background: #1e293b; padding: 2rem; border-radius: 20px; text-align: center; border: 1px solid #38bdf8; width: 350px; }
+        .btn { background: #38bdf8; color: #0f172a; border: none; padding: 1rem 2rem; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 style="margin-top:0">Tempo Hub</h1>
-        <p style="color: var(--primary); font-size: 0.8rem; letter-spacing: 1px; margin-bottom: 2rem;">MODERATO NETWORK</p>
-        
-        <div id="ui-content">
-            <button id="mainBtn" class="btn">CONECTAR CARTEIRA</button>
-            <div id="status-box">Aguardando interação...</div>
-        </div>
+    <div class="box">
+        <h2>Moderato Mint v4.1</h2>
+        <button id="mintBtn" class="btn">EXECUTAR MINT</button>
+        <p id="status">Verifica a tua Rabby Wallet.</p>
     </div>
 
 <script>
-    const CONTRACT = "0x20c0000000000000000000000000000000000005";
+    const ADDR = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
-    let walletSigner = null;
 
-    const mainBtn = document.getElementById('mainBtn');
-    const statusBox = document.getElementById('status-box');
-
-    function updateStatus(msg, type = '') {
-        statusBox.innerText = msg;
-        statusBox.className = '';
-        if (type) statusBox.classList.add(`status-${type}`);
-    }
-
-    // 1. Ligar Carteira
-    mainBtn.onclick = async () => {
-        if (!walletSigner) {
-            try {
-                if (!window.ethereum) throw new Error("Rabby não detetada.");
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                await provider.send("eth_requestAccounts", []);
-                walletSigner = provider.getSigner();
-                mainBtn.innerText = "MINT STARTER KIT";
-                updateStatus("Carteira ligada com sucesso!", "ok");
-            } catch (e) {
-                updateStatus("Erro ao ligar: " + e.message, "err");
-            }
-        } else {
-            executeMint();
-        }
-    };
-
-    // 2. Executar Mint com Notificações Inteligentes
-    async function executeMint() {
-        mainBtn.disabled = true;
-        updateStatus("A validar elegibilidade na rede Moderato...", "wait");
+    document.getElementById('mintBtn').onclick = async () => {
+        const btn = document.getElementById('mintBtn');
+        const status = document.getElementById('status');
+        btn.disabled = true;
 
         try {
-            const contract = new ethers.Contract(CONTRACT, ABI, walletSigner);
-            const userAddr = await walletSigner.getAddress();
-            const amount = ethers.BigNumber.from("9982000000000000000000000");
+            if (!window.ethereum) throw new Error("Instala a Rabby.");
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(ADDR, ABI, signer);
+            
+            status.innerText = "A enviar... Ignora o aviso de simulação.";
+            
+            // Valor exato de 9.982.000 tokens com 18 decimais
+            const val = ethers.BigNumber.from("9982000000000000000000000");
 
-            // Chamada de Mint
-            const tx = await contract.mint(userAddr, amount, {
-                gasLimit: 600000,
-                gasPrice: 1000000002
+            const tx = await contract.mint(await signer.getAddress(), val, {
+                gasLimit: 600000, 
+                gasPrice: 1000000002 
             });
 
-            updateStatus("Transação enviada! A aguardar confirmação dos blocos...", "wait");
+            status.innerText = "Pendente na blockchain...";
+            await tx.wait();
+            status.innerHTML = "<b style='color:#22c55e'>SUCESSO!</b>";
+        } catch (err) {
+            console.error(err);
+            if (err.message.includes("429")) {
+                status.innerText = "Rede Lenta (Rate Limit). Tenta em 30 segundos.";
+            } else {
+                status.innerText = "Falha: O contrato de sistema rejeitou o pedido.";
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    };
+</script>
+</body>
+</html>
