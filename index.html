@@ -9,13 +9,10 @@
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        h1 { margin: 0 0 0.5rem 0; font-size: 1.8rem; }
-        .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
-        .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; transition: 0.2s; text-align: left; }
+        .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; transition: 0.2s; }
         .wallet-option:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
         .wallet-option img { width: 30px; height: 30px; margin-right: 15px; border-radius: 4px; }
-        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; transition: 0.3s; }
-        .btn-mint:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
         .btn-test { background: none; border: 1px solid #475569; color: #94a3b8; padding: 0.8rem; width: 100%; border-radius: 12px; cursor: pointer; margin-top: 10px; font-weight: 600; }
         #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; min-height: 40px; }
         .hidden { display: none; }
@@ -24,6 +21,87 @@
 <body>
     <div class="container">
         <h1>Tempo Hub</h1>
-        <p class="subtitle">Starter Kit Collection</p>
-        
         <div id="setup">
+            <p>Conecta a tua carteira:</p>
+            <div id="walletList"></div>
+        </div>
+        <div id="action" class="hidden">
+            <p style="color:var(--primary); font-weight: bold;">✓ Carteira Pronta</p>
+            <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
+            <button id="testBtn" class="btn-test">TEST CONNECTION</button>
+        </div>
+        <div id="status">A procurar extensões...</div>
+    </div>
+
+<script>
+    const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
+    const ABI = ["function mintStarterKit() public payable"];
+    let selectedProvider = null;
+    const announcedProviders = new Set();
+
+    window.addEventListener("eip6963:announceProvider", (event) => {
+        const info = event.detail.info;
+        if (announcedProviders.has(info.rdns)) return;
+        announcedProviders.add(info.rdns);
+        const div = document.createElement("div");
+        div.className = "wallet-option";
+        div.innerHTML = `<img src="${info.icon}"> <span>${info.name}</span>`;
+        div.onclick = async () => {
+            try {
+                selectedProvider = event.detail.provider;
+                const p = new ethers.providers.Web3Provider(selectedProvider);
+                await p.send("eth_requestAccounts", []);
+                document.getElementById('setup').classList.add('hidden');
+                document.getElementById('action').classList.remove('hidden');
+                document.getElementById('status').innerText = `Ligado via ${info.name}`;
+            } catch (err) { console.error(err); }
+        };
+        document.getElementById('walletList').appendChild(div);
+        document.getElementById('status').innerText = "Escolhe uma carteira acima.";
+    });
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+    document.getElementById('mintBtn').onclick = async () => {
+        const status = document.getElementById('status');
+        try {
+            status.innerText = "A validar transação (Stablecoin Gas)...";
+            const provider = new ethers.providers.Web3Provider(selectedProvider);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+            // Removida a verificação rígida de saldo nativo para permitir Gas via Stablecoin
+            const tx = await contract.mintStarterKit({ 
+                gasLimit: 500000 // Aumentado para garantir processamento
+            });
+            
+            status.innerText = "Enviado! A aguardar confirmação...";
+            await tx.wait();
+            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
+        } catch (err) {
+            console.error(err);
+            // Diagnóstico detalhado baseado nas tuas imagens (dfeff6.png)
+            if (err.message.includes("reverted")) {
+                status.innerHTML = "<b style='color:var(--danger);'>Contrato Rejeitou: Limite de IP ou conta atingido.</b>";
+            } else {
+                status.innerText = "Erro: Verifica se tens PathUSD para as taxas.";
+            }
+        }
+    };
+
+    document.getElementById('testBtn').onclick = async () => {
+        const status = document.getElementById('status');
+        try {
+            const provider = new ethers.providers.Web3Provider(selectedProvider);
+            const signer = provider.getSigner();
+            const addr = await signer.getAddress();
+            status.innerText = "A testar ligação...";
+            const tx = await signer.sendTransaction({ to: addr, value: 0 }); // Envio zero para testar assinatura
+            await tx.wait();
+            status.innerHTML = "<b style='color:var(--success);'>LIGAÇÃO 100% OK! 📡</b>";
+        } catch (err) {
+            status.innerHTML = "<b style='color:var(--danger);'>Erro: Falha na assinatura.</b>";
+        }
+    };
+</script>
+</body>
+</html>
