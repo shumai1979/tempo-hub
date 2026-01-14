@@ -3,24 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub - Moderato Mint</title>
+    <title>Tempo Hub - Official Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; transition: 0.2s; }
+        .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; transition: 0.2s; text-align: left; }
         .wallet-option:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
         .wallet-option img { width: 30px; height: 30px; margin-right: 15px; border-radius: 4px; }
         .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.5; }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; min-height: 40px; }
         .hidden { display: none; }
+        a { color: var(--primary); text-decoration: none; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Tempo Hub</h1>
-        <p style="font-size: 0.8rem; color: var(--primary);">Rede: Moderato (Online)</p>
+        <p style="font-size: 0.75rem; color: var(--primary); margin-bottom: 1.5rem;">Rede: Moderato (Online)</p>
         
         <div id="setup">
             <p>Conecta a tua Rabby Wallet:</p>
@@ -31,16 +32,17 @@
             <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
         </div>
 
-        <div id="status">A procurar Rabby...</div>
+        <div id="status">A procurar extensões...</div>
     </div>
 
 <script>
-    // Este contrato pode estar em manutenção devido à migração de 8 Jan.
+    // Este contrato foi desativado em 8 Jan (image_e3f903). 
+    // Assim que tiveres o novo endereço da rede Moderato, basta substituí-lo aqui.
     const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
     const ABI = ["function mintStarterKit() public payable"];
     let selectedProvider = null;
 
-    // 1. Detetar Carteira (Padrão EIP-6963 para evitar conflitos)
+    // 1. Deteção da Rabby via EIP-6963 (Resolve os erros das imagens image_e14934 e image_e1c8d4)
     window.addEventListener("eip6963:announceProvider", (event) => {
         const info = event.detail.info;
         if (info.name !== "Rabby Wallet") return;
@@ -55,44 +57,44 @@
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = "Ligado com sucesso.";
+                document.getElementById('status').innerText = "Ligado à rede Moderato.";
             } catch (err) {
-                document.getElementById('status').innerText = "Erro ao conectar.";
+                document.getElementById('status').innerText = "Conexão cancelada.";
             }
         };
         document.getElementById('walletList').innerHTML = "";
         document.getElementById('walletList').appendChild(div);
-        document.getElementById('status').innerText = "Escolhe a carteira acima.";
+        document.getElementById('status').innerText = "Clica na carteira acima.";
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-    // 2. Lógica do Mint Otimizada
+    // 2. Lógica de Mint para Stablecoin Gas (image_e1ba0a)
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
         try {
-            status.innerText = "A processar na rede Moderato...";
+            status.innerText = "A validar transação na rede Moderato...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // A rede Tempo usa PathUSD para gás. Forçamos o limite para garantir execução.
+            // Forçamos o gasLimit para contornar a falta de token nativo (image_e1ba0a)
             const tx = await contract.mintStarterKit({ gasLimit: 500000 });
             
-            status.innerHTML = "<b>Transação enviada!</b><br>A aguardar bloco...";
+            status.innerHTML = "<b>Pendente...</b><br>A aguardar confirmação.";
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
             
         } catch (err) {
             console.error(err);
-            // Se o erro persistir, confirma se o contrato mudou no Discord do projeto
-            if (err.message.includes("reverted") || err.message.includes("CALL_EXCEPTION")) {
+            // Diagnóstico baseado no erro CALL_EXCEPTION visto nas imagens image_e1ccb0 e image_e40048
+            if (err.message.includes("CALL_EXCEPTION") || err.message.includes("reverted")) {
                 status.innerHTML = `
-                    <b style="color:var(--danger);">Erro de Rede (Moderato)</b><br>
-                    O contrato antigo foi desativado na migração de 8 Jan.<br>
-                    <a href="https://explore.tempo.xyz" target="_blank" style="color:var(--primary)">Verifica o novo contrato aqui ↗</a>
+                    <b style="color:var(--danger);">Contrato Desativado (Rede Moderato)</b><br>
+                    Este contrato expirou na migração de 8 Jan.<br>
+                    <a href="https://explore.tempo.xyz" target="_blank">Procurar novo contrato aqui ↗</a>
                 `;
             } else {
-                status.innerText = "Erro: " + (err.reason || "Interação cancelada.");
+                status.innerText = "Erro: Verifica as taxas de PathUSD ou a ligação.";
             }
         }
     };
