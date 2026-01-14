@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub - Moderato Mint</title>
+    <title>Tempo Hub - Official Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
@@ -32,18 +32,18 @@
             <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
         </div>
 
-        <div id="status">A detetar Rabby...</div>
+        <div id="status">A detetar extensões...</div>
     </div>
 
 <script>
-    // Configurações da nova rede Moderato (conforme a página que enviaste)
-    const MODERATO_CHAIN_ID = "0xa5bf"; // 42431 em decimal
+    // Configurações extraídas da documentação e transações de sucesso
+    const MODERATO_CHAIN_ID = "0xa5bf"; // 42431 em hexadecimal
     const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
     
     let selectedProvider = null;
 
-    // 1. Deteção da Rabby e Troca de Rede Automática
+    // 1. Deteção da Rabby e Troca de Rede
     window.addEventListener("eip6963:announceProvider", (event) => {
         if (event.detail.info.name !== "Rabby Wallet") return;
         const div = document.createElement("div");
@@ -54,57 +54,55 @@
                 selectedProvider = event.detail.provider;
                 const p = new ethers.providers.Web3Provider(selectedProvider);
                 
-                // Forçar a troca para a rede Moderato (Chain ID 42431)
+                // Forçar troca para rede Moderato
                 try {
                     await selectedProvider.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: MODERATO_CHAIN_ID }],
                     });
-                } catch (switchError) {
-                    // Se a rede não estiver na Rabby, este código ajuda o utilizador
-                    document.getElementById('status').innerText = "Por favor, adiciona a rede Moderato à Rabby.";
-                }
+                } catch (e) { console.log("Rede já selecionada ou erro ao trocar."); }
 
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = "Ligado à Moderato.";
+                document.getElementById('status').innerText = "Ligado. Clica em Mint.";
             } catch (err) {
                 document.getElementById('status').innerText = "Erro na conexão.";
             }
         };
         document.getElementById('walletList').innerHTML = "";
         document.getElementById('walletList').appendChild(div);
+        document.getElementById('status').innerText = "Clica na carteira acima.";
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-    // 2. Lógica de Mint (Ajustada para o novo sistema)
+    // 2. Lógica de Mint
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
         try {
-            status.innerText = "A processar na rede Moderato...";
+            status.innerText = "A validar transação na Moderato...";
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const userAddress = await signer.getAddress();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // Valor de 9.982.000 tokens (sem decimais excessivos para contratos de sistema)
-            const amount = ethers.BigNumber.from("9982000"); 
+            // Valor bruto conforme image_15e2e0
+            const amount = ethers.BigNumber.from("9982000000000000000000000"); 
 
-            status.innerHTML = "<b>Assina na Rabby agora.</b><br>Ignora avisos de 'Simulation Failed'.";
+            status.innerHTML = "<b>Assina na Rabby agora.</b><br>Ignora o aviso 'Simulation Not Supported'.";
             
             const tx = await contract.mint(userAddress, amount, {
-                gasLimit: 1000000, // Limite alto para garantir sucesso na nova rede
-                gasPrice: 1000000002 // Preço fixo da Moderato
+                gasLimit: 800000, 
+                gasPrice: 1000000002 
             });
             
-            status.innerHTML = "<b>Pendente...</b><br>A aguardar confirmação na Moderato.";
+            status.innerHTML = "<b>Pendente...</b><br>A aguardar rede Moderato.";
             await tx.wait();
-            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! O Kit foi resgatado. 🚀</b>";
+            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
             
         } catch (err) {
             console.error(err);
-            status.innerHTML = `<b style="color:var(--danger);">Falha:</b><br><small>O contrato de sistema rejeitou o pedido. Verifica se tens AlphaUSD para a taxa.</small>`;
+            status.innerHTML = `<b style="color:var(--danger);">Falha:</b><br><small>O contrato rejeitou. Confirma se tens AlphaUSD para a taxa.</small>`;
         }
     };
 </script>
