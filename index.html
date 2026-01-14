@@ -2,76 +2,61 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Official Mint</title>
+    <title>Moderato Mint v4.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 400px; }
-        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        body { background: #0f172a; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .box { background: #1e293b; padding: 2rem; border-radius: 20px; text-align: center; border: 1px solid #38bdf8; width: 350px; }
+        .btn { background: #38bdf8; color: #0f172a; border: none; padding: 1rem 2rem; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
-    </small></style>
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Tempo Hub Moderato</h2>
-        <div id="connectSection">
-            <button class="btn" id="connectBtn">Conectar Rabby</button>
-        </div>
-        <div id="mintSection" style="display:none">
-            <p>Carteira: <span id="addrDisplay" style="color:var(--primary)"></span></p>
-            <button class="btn" id="mintBtn">MINT STARTER KIT</button>
-        </div>
-        <p id="status">A aguardar conexão...</p>
+    <div class="box">
+        <h2>Moderato Mint v4.1</h2>
+        <button id="mintBtn" class="btn">EXECUTAR MINT</button>
+        <p id="status">Verifica a tua Rabby Wallet.</p>
     </div>
 
 <script>
-    // Endereço do contrato de distribuição (Proxy) para a Moderato
-    const PROXY_CONTRACT = "0x20c0000000000000000000000000000000000005";
+    const ADDR = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
-    
-    let signer;
-
-    document.getElementById('connectBtn').onclick = async () => {
-        if (!window.ethereum) return alert("Instala a Rabby!");
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
-        const address = await signer.getAddress();
-        
-        document.getElementById('addrDisplay').innerText = address.substring(0,6) + "..." + address.substring(38);
-        document.getElementById('connectSection').style.display = 'none';
-        document.getElementById('mintSection').style.display = 'block';
-        document.getElementById('status').innerText = "Ligado à rede Moderato.";
-    };
 
     document.getElementById('mintBtn').onclick = async () => {
+        const btn = document.getElementById('mintBtn');
         const status = document.getElementById('status');
-        try {
-            status.innerText = "A processar... Por favor, assina na Rabby.";
-            
-            const contract = new ethers.Contract(PROXY_CONTRACT, ABI, signer);
-            const userAddr = await signer.getAddress();
-            
-            // Valor exato detetado no explorador para a tua conta
-            const amount = ethers.utils.parseUnits("9982000", 18);
+        btn.disabled = true;
 
-            // IMPORTANTE: Na Moderato, o gasLimit tem de ser exato
-            const tx = await contract.mint(userAddr, amount, {
-                gasLimit: 400000, 
-                gasPrice: 1000000002 // Preço padrão da rede Moderato
+        try {
+            if (!window.ethereum) throw new Error("Instala a Rabby.");
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(ADDR, ABI, signer);
+            
+            status.innerText = "A enviar... Ignora o aviso de simulação.";
+            
+            // Valor exato de 9.982.000 tokens com 18 decimais
+            const val = ethers.BigNumber.from("9982000000000000000000000");
+
+            const tx = await contract.mint(await signer.getAddress(), val, {
+                gasLimit: 600000, 
+                gasPrice: 1000000002 
             });
 
-            status.innerText = "Transação enviada! Aguarda a blockchain...";
+            status.innerText = "Pendente na blockchain...";
             await tx.wait();
-            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! O Kit está na tua conta.</b>";
+            status.innerHTML = "<b style='color:#22c55e'>SUCESSO!</b>";
         } catch (err) {
             console.error(err);
             if (err.message.includes("429")) {
-                status.innerText = "Erro: Servidor ocupado. Tenta de novo em 10 segundos.";
+                status.innerText = "Rede Lenta (Rate Limit). Tenta em 30 segundos.";
             } else {
-                status.innerText = "O contrato de sistema ainda não libertou o mint para esta carteira.";
+                status.innerText = "Falha: O contrato de sistema rejeitou o pedido.";
             }
+        } finally {
+            btn.disabled = false;
         }
     };
 </script>
