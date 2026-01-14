@@ -7,8 +7,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; }
-        body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 3rem; border-radius: 24px; box-shadow: 0 0 50px rgba(56, 189, 248, 0.2); border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 400px; width: 90%; }
+        body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 3rem; border-radius: 24px; box-shadow: 0 0 50px rgba(56, 189, 248, 0.2); border: 1px solid rgba(255,255,255,0.1); text-align: center; max-width: 400px; width: 90%; margin-bottom: 2rem; }
         h1 { color: var(--primary); font-size: 2.5rem; margin-bottom: 0.5rem; letter-spacing: -1px; font-weight: 800; }
         p { color: #94a3b8; margin-bottom: 2rem; }
         .btn { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem 2rem; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; transition: 0.3s; font-size: 1.1rem; text-transform: uppercase; }
@@ -17,74 +17,22 @@
         #status { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; font-family: monospace; line-height: 1.4; min-height: 50px; }
         .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 6px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 1rem; display: inline-block; }
         .explorer-link { display: none; margin-top: 15px; color: var(--primary); text-decoration: underline; font-size: 0.8rem; cursor: pointer; font-weight: bold; }
+        
+        /* Estilo do Rodapé */
+        footer { font-size: 0.75rem; color: #475569; text-align: center; }
+        footer a { color: #64748b; text-decoration: none; margin: 0 10px; transition: 0.3s; }
+        footer a:hover { color: var(--primary); }
+        .divider { color: #1e293b; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="badge">Tempo Network Live</div>
+    <div class="badge">Moderato Testnet</div>
     <h1>Tempo Hub</h1>
-    <p>Secure your exclusive Starter Kit on the Moderato Network.</p>
+    <p>Secure your exclusive Starter Kit on the official Tempo Network ecosystem.</p>
     
     <button class="btn" id="mintBtn">Connect & Claim</button>
     
     <div id="status">Ready to initialize</div>
-    <a id="txLink" href="#" target="_blank" class="explorer-link">View Transaction Proof</a>
-</div>
-
-<script>
-    const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037"; 
-    const ABI = [
-        "function mintStarterKit() public payable",
-        "function hasClaimed(address) public view returns (bool)"
-    ];
-
-    const mintBtn = document.getElementById('mintBtn');
-    const statusDiv = document.getElementById('status');
-    const txLink = document.getElementById('txLink');
-
-    mintBtn.onclick = async () => {
-        if (!window.ethereum) return alert("Please install Rabby or MetaMask!");
-        
-        try {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await provider.send("eth_requestAccounts", []);
-            const signer = provider.getSigner();
-            const address = accounts[0];
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
-            statusDiv.innerText = "Checking blockchain status...";
-            
-            // Verificação de elegibilidade
-            const alreadyClaimed = await contract.hasClaimed(address);
-            if (alreadyClaimed) {
-                statusDiv.innerHTML = "<b style='color:var(--danger);'>Already claimed with this wallet.</b>";
-                mintBtn.innerText = "CLAIMED";
-                mintBtn.disabled = true;
-                return;
-            }
-
-            statusDiv.innerText = "Sign the transaction in your wallet...";
-            const tx = await contract.mintStarterKit({ gasLimit: 150000 });
-
-            statusDiv.innerHTML = "Transaction pending on network...";
-            txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
-            txLink.style.display = "inline-block";
-
-            await tx.wait();
-            statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCCESSFULLY CLAIMED! 🚀</b>";
-            mintBtn.innerText = "COMPLETE";
-            mintBtn.disabled = true;
-
-        } catch (err) {
-            console.error(err);
-            if (err.message.includes("execution reverted")) {
-                statusDiv.innerHTML = "<b style='color:var(--danger);'>Already claimed or insufficient funds.</b>";
-            } else {
-                statusDiv.innerText = "Interaction canceled.";
-            }
-        }
-    };
-</script>
-</body>
-</html>
+    <a id="txLink" href="#" target="_blank
