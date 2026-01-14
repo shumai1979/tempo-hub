@@ -2,104 +2,70 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub - Official Mint v4.3</title>
+    <title>Tempo Hub - Moderato Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; --warning: #fbbf24; }
-        body { background-color: var(--bg); color: white; font-family: 'Inter', -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 400px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        h1 { margin: 0 0 0.5rem 0; font-size: 1.8rem; }
-        .network-tag { color: var(--primary); font-size: 0.75rem; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2rem; display: block; }
-        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
-        .btn-mint:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn-mint:active { transform: translateY(0); }
-        .btn-mint:disabled { background: #475569; cursor: not-allowed; transform: none; }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.5; min-height: 60px; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.2); }
-        .err-text { color: var(--danger); }
-        .success-text { color: var(--success); font-weight: bold; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 350px; }
+        .btn { background: var(--primary); color: var(--bg); border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; line-height: 1.4; }
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <h1>Tempo Hub</h1>
-        <span class="network-tag">Moderato Testnet</span>
-        
-        <button id="mintBtn" class="btn-mint">CONECTAR E MINT</button>
-        
-        <div id="status">A aguardar interação com a Rabby Wallet...</div>
+    <div class="box">
+        <h2 style="margin-bottom: 5px;">Tempo Hub</h2>
+        <p style="color: var(--primary); font-size: 0.7rem; margin-bottom: 25px;">MODERATO TESTNET</p>
+        <button id="mintBtn" class="btn">CONECTAR E MINT</button>
+        <div id="status">Aguardando interação com a Rabby...</div>
     </div>
 
 <script>
-    // Configurações Oficiais da Rede Moderato (Pós-TIP-20)
-    const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
+    const ADDR = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
-    const CHAIN_ID = "0xa5bf"; // 42431
-
-    let signer = null;
 
     document.getElementById('mintBtn').onclick = async () => {
         const btn = document.getElementById('mintBtn');
         const status = document.getElementById('status');
-        
+        btn.disabled = true;
+
         try {
-            if (!window.ethereum) {
-                status.innerHTML = '<span class="err-text">Rabby Wallet não detetada.</span>';
-                return;
-            }
-
-            btn.disabled = true;
-            status.innerText = "A acordar a carteira...";
-
-            // 1. Ligar e Garantir Rede Correta
+            if (!window.ethereum) throw new Error("Instala a Rabby.");
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
-            
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: CHAIN_ID }],
-                });
-            } catch (e) { console.log("Rede já configurada."); }
-
-            signer = provider.getSigner();
+            const signer = provider.getSigner();
             const userAddr = await signer.getAddress();
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            const contract = new ethers.Contract(ADDR, ABI, signer);
+            
+            status.innerText = "A chamar a Rabby... Assina a transação.";
 
-            status.innerText = "A preparar transação TIP-20... Assina na Rabby.";
+            // Valor exato TIP-20
+            const val = ethers.BigNumber.from("9982000000000000000000000");
 
-            // 2. Executar Mint (Valor de 9.982.000 tokens com 18 decimais)
-            const amount = ethers.BigNumber.from("9982000000000000000000000");
-
-            const tx = await contract.mint(userAddr, amount, {
-                gasLimit: 1200000, // Limite alto para processar o sistema de taxas TIP-20
-                gasPrice: 1000000005, // Ligeiramente acima do base para prioridade
-                type: 0 // Força transação legacy para compatibilidade de sistema
+            const tx = await contract.mint(userAddr, val, {
+                gasLimit: 1200000, 
+                gasPrice: 1000000005,
+                type: 0 // Legacy para compatibilidade Moderato
             });
 
-            status.innerText = "Transação enviada! A aguardar confirmação...";
+            status.innerText = "Transação enviada! Aguarda a blockchain...";
             await tx.wait();
-
-            status.innerHTML = '<span class="success-text">SUCESSO! O Kit foi resgatado. 🚀</span>';
-            btn.innerText = "MINT CONCLUÍDO";
+            status.innerHTML = "<b style='color:var(--success)'>SUCESSO! O Kit está na conta.</b>";
 
         } catch (err) {
-            console.error("Erro completo:", err);
-            btn.disabled = false;
-
+            console.error("DEBUG:", err);
             if (err.message.includes("429")) {
-                status.innerHTML = '<span class="err-text">Erro 429: Rede sobrecarregada. Aguarda 30 segundos e tenta de novo.</span>';
-            } else if (err.code === "CALL_EXCEPTION" || err.message.includes("execution reverted")) {
-                status.innerHTML = '<span class="err-text">O contrato rejeitou o pedido. Verificaste se a tua conta já foi ativada via Bridge?</span>';
-            } else if (err.message.includes("User rejected")) {
-                status.innerText = "Transação cancelada pelo utilizador.";
+                status.innerText = "Erro 429: Rede sobrecarregada. Tenta em 30 segundos.";
+            } else if (err.code === "CALL_EXCEPTION") {
+                status.innerHTML = "<b style='color:var(--danger)'>O contrato rejeitou o pedido.</b><br>Verifica se ativaste a conta via Bridge.";
             } else {
-                status.innerHTML = '<span class="err-text">Falha técnica. Verifica o saldo de AlphaUSD e tenta novamente.</span>';
+                status.innerText = "Erro: A carteira não respondeu corretamente.";
             }
+        } finally {
+            btn.disabled = false;
         }
     };
 </script>
-
 </body>
 </html>
