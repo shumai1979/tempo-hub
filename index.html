@@ -3,113 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub - Fix</title>
+    <title>Tempo Hub Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; }
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); }
-        .wallet-option { 
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
-            padding: 1rem; margin: 10px 0; border-radius: 12px; cursor: pointer; 
-            display: flex; align-items: center; transition: 0.3s; 
-        }
-        .wallet-option:hover { background: rgba(56, 189, 248, 0.2); border-color: var(--primary); }
-        .wallet-option img { width: 32px; height: 32px; margin-right: 15px; border-radius: 6px; }
-        #status { margin-top: 1rem; font-size: 0.9rem; color: #94a3b8; min-height: 40px; }
+        .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 10px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; transition: 0.2s; }
+        .wallet-option:hover { background: rgba(56, 189, 248, 0.15); border: 1px solid var(--primary); }
+        .wallet-option img { width: 28px; height: 28px; margin-right: 12px; }
+        #status { margin-top: 1rem; font-size: 0.85rem; color: #94a3b8; }
+        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; }
         .hidden { display: none; }
-        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1.1rem; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <h1>Tempo Hub</h1>
-    <div id="setupArea">
-        <p>Escolhe a tua carteira:</p>
-        <div id="walletList"></div>
+    <div class="container">
+        <h1>Tempo Hub</h1>
+        <div id="setup">
+            <p>Escolhe a tua carteira:</p>
+            <div id="list"></div>
+        </div>
+        <div id="action" class="hidden">
+            <p style="color:var(--primary)">✓ Conectado</p>
+            <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
+        </div>
+        <div id="status">Aguardando carteira...</div>
     </div>
-
-    <div id="actionArea" class="hidden">
-        <p style="color:var(--primary)">✓ Carteira Conectada</p>
-        <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
-    </div>
-
-    <div id="status">A procurar carteiras...</div>
-</div>
 
 <script>
     const CONTRACT_ADDRESS = "0x515f564904E22713f15b56fdE37cF6d23dBF7037";
     const ABI = ["function mintStarterKit() public payable"];
-    let selectedProvider = null;
-    const discoveredWallets = new Set(); // Para evitar duplicados
+    let wallet = null;
+    const seen = new Set();
 
-    const walletList = document.getElementById('walletList');
-    const statusDiv = document.getElementById('status');
+    // Deteta carteiras sem duplicados (Resolve image_d5fe71.png)
+    window.addEventListener("eip6963:announceProvider", e => {
+        if (seen.has(e.detail.info.rdns)) return;
+        seen.add(e.detail.info.rdns);
 
-    window.addEventListener("eip6963:announceProvider", (event) => {
-        const info = event.detail.info;
-        
-        // SÓ ADICIONA SE AINDA NÃO EXISTIR NA LISTA
-        if (discoveredWallets.has(info.rdns)) return;
-        discoveredWallets.add(info.rdns);
-
-        const btn = document.createElement("div");
-        btn.className = "wallet-option";
-        btn.innerHTML = `<img src="${info.icon}" alt="${info.name}"> <span>${info.name}</span>`;
-        
-        btn.onclick = async () => {
-            try {
-                selectedProvider = event.detail.provider;
-                const ethersProvider = new ethers.providers.Web3Provider(selectedProvider);
-                await ethersProvider.send("eth_requestAccounts", []);
-                document.getElementById('setupArea').classList.add('hidden');
-                document.getElementById('actionArea').classList.remove('hidden');
-                statusDiv.innerText = `Pronto para mintar com ${info.name}`;
-            } catch (e) {
-                statusDiv.innerText = "Conexão rejeitada.";
-            }
+        const row = document.createElement("div");
+        row.className = "wallet-option";
+        row.innerHTML = `<img src="${e.detail.info.icon}"> <span>${e.detail.info.name}</span>`;
+        row.onclick = async () => {
+            wallet = e.detail.provider;
+            await new ethers.providers.Web3Provider(wallet).send("eth_requestAccounts", []);
+            document.getElementById('setup').classList.add('hidden');
+            document.getElementById('action').classList.remove('hidden');
+            document.getElementById('status').innerText = "Carteira pronta!";
         };
-        walletList.appendChild(btn);
-        statusDiv.innerText = "Carteiras prontas.";
+        document.getElementById('list').appendChild(row);
     });
-
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
     document.getElementById('mintBtn').onclick = async () => {
-        if (!selectedProvider) return;
+        const status = document.getElementById('status');
         try {
-            statusDiv.innerText = "Confirma na tua carteira...";
-            const provider = new ethers.providers.Web3Provider(selectedProvider);
-            const signer = provider.getSigner();
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            const provider = new ethers.providers.Web3Provider(wallet);
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider.getSigner());
             
-            // 1. Tentar simular primeiro para ver se o contrato aceita
-            try {
-                await contract.callStatic.mintStarterKit();
-            } catch (simError) {
-                console.error("Erro na simulação:", simError);
-                statusDiv.innerHTML = `<b style='color:var(--danger);'>O contrato rejeitou: ${simError.reason || "Requisito não cumprido"}</b>`;
-                return;
-            }
-
-            const tx = await contract.mintStarterKit({ gasLimit: 250000 });
-            statusDiv.innerHTML = "A processar na Blockchain...";
+            status.innerText = "Validando no contrato...";
+            // Tenta o mint com um gasLimit fixo para evitar erros de estimativa (Resolve image_dfeff6.png)
+            const tx = await contract.mintStarterKit({ gasLimit: 300000 });
+            
+            status.innerText = "Transação enviada! Aguarda...";
             const receipt = await tx.wait();
-
-            if (receipt.status === 1) {
-                statusDiv.innerHTML = "<b style='color:#22c55e;'>SUCESSO! 🚀</b>";
-            } else {
-                statusDiv.innerHTML = "<b style='color:var(--danger);'>A transação falhou na rede.</b>";
-            }
+            status.innerHTML = receipt.status === 1 ? "🚀 SUCESSO!" : "❌ FALHOU NA REDE";
         } catch (err) {
-            console.error("Erro Final:", err);
-            // Captura erros comuns de saldo ou cancelamento
-            const msg = err.data?.message || err.message;
-            statusDiv.innerHTML = `<b style='color:var(--danger);'>Erro: ${msg.includes("insufficient") ? "Saldo Insuficiente" : "Falha no Mint"}</b>`;
+            console.error(err);
+            // Captura o erro de revert e saldo
+            status.innerHTML = `<span style="color:var(--danger)">Erro: ${err.reason || "Rejeitado pelo Contrato"}</span>`;
         }
     };
 </script>
 </body>
 </html>
-
