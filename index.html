@@ -53,18 +53,18 @@
     const txLink = document.getElementById('txLink');
 
     mintBtn.onclick = async () => {
-        // Detetar provider com suporte a múltiplos injects
+        // Selecionar o provider correto para evitar conflitos de extensões (image_d57465.png)
         const provider_source = window.ethereum;
         
         if (!provider_source) {
-            return alert("No wallet found. Please enable Rabby or MetaMask.");
+            return alert("No wallet found. Please install Rabby Wallet.");
         }
         
         try {
             statusDiv.innerText = "Connecting...";
+            // Criar provider com rede "any" para suportar mudanças bruscas de RPC
             const provider = new ethers.providers.Web3Provider(provider_source, "any");
             
-            // Forçar pedido de contas
             const accounts = await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
             const address = accounts[0];
@@ -72,6 +72,7 @@
             statusDiv.innerText = "Verifying eligibility...";
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
             
+            // Verificação proativa para evitar o erro de 'execution reverted' (image_d57b2a.png)
             const alreadyClaimed = await contract.hasClaimed(address);
             if (alreadyClaimed) {
                 statusDiv.innerHTML = "<b style='color:var(--danger);'>Already claimed with this wallet.</b>";
@@ -80,10 +81,10 @@
                 return;
             }
 
-            statusDiv.innerText = "Check your wallet to sign...";
+            statusDiv.innerText = "Please sign in your wallet...";
             const tx = await contract.mintStarterKit({ gasLimit: 150000 });
 
-            statusDiv.innerHTML = "Transaction sent! Waiting for block...";
+            statusDiv.innerHTML = "Transaction pending...";
             txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
             txLink.style.display = "inline-block";
 
@@ -93,8 +94,13 @@
             mintBtn.disabled = true;
 
         } catch (err) {
-            console.error("Interaction Error:", err);
-            statusDiv.innerText = "Connection failed. Please ensure only ONE wallet is active.";
+            console.error("Critical Error:", err);
+            // Tratamento amigável para o erro de reversão visto na consola
+            if (err.message.includes("execution reverted") || err.code === -32603) {
+                statusDiv.innerHTML = "<b style='color:var(--danger);'>Action rejected: Already claimed or insufficient funds.</b>";
+            } else {
+                statusDiv.innerText = "Connection failed. Ensure only ONE wallet is active.";
+            }
         }
     };
 </script>
