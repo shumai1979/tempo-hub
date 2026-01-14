@@ -71,7 +71,7 @@
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // Forçar gasLimit para ignorar falhas de simulação causadas por falta de token nativo
+            // Forçar gasLimit para ignorar falhas de simulação causadas por falta de token nativo convencional
             const tx = await contract.mintStarterKit({ gasLimit: 400000 });
             status.innerText = "A processar na Blockchain...";
             await tx.wait();
@@ -94,7 +94,7 @@
             const signer = provider.getSigner();
             const addr = await signer.getAddress();
             status.innerText = "A assinar teste de rede...";
-            // Envio de 0 ETH para testar apenas a assinatura e conexão
+            // Envio de 0 ETH para testar apenas a assinatura e conexão usando PathUSD como fundo
             const tx = await signer.sendTransaction({ to: addr, value: 0 });
             await tx.wait();
             status.innerHTML = "<b style='color:var(--success);'>LIGAÇÃO 100% OK! 📡</b>";
