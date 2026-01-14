@@ -9,12 +9,14 @@
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --danger: #f87171; --success: #22c55e; }
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
+        .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; transition: 0.2s; }
+        .btn-mint:hover { opacity: 0.9; transform: scale(1.02); }
         .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; text-align: left; }
+        .wallet-option:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
         .wallet-option img { width: 30px; margin-right: 15px; border-radius: 4px; }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; min-height: 50px; }
         .hidden { display: none; }
-    </style>
+    </small></style>
 </head>
 <body>
     <div class="container">
@@ -27,23 +29,21 @@
         </div>
 
         <div id="action" class="hidden">
-            <p style="color:var(--success); font-weight: bold; margin-bottom: 1rem;">✓ Carteira Conectada</p>
+            <p style="color:var(--success); font-weight: bold; margin-bottom: 1rem;">✓ Carteira Pronta</p>
             <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
         </div>
 
-        <div id="status">A procurar Rabby...</div>
+        <div id="status">A procurar extensões...</div>
     </div>
 
 <script>
-    // ENDEREÇO CORRIGIDO BASEADO NA TRANSAÇÃO DE SUCESSO (image_15e2e0.png)
+    // Endereço do Contrato de Sistema Moderato (0x20c0...0005)
     const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
-    
-    // ABI da nova função 'mint' detetada no explorador
     const ABI = ["function mint(address to, uint256 amount) public"];
     
     let selectedProvider = null;
 
-    // Deteção Rabby via EIP-6963
+    // 1. Deteção da Rabby via EIP-6963 (Evita erros de consola)
     window.addEventListener("eip6963:announceProvider", (event) => {
         if (event.detail.info.name !== "Rabby Wallet") return;
         const div = document.createElement("div");
@@ -56,46 +56,11 @@
                 await p.send("eth_requestAccounts", []);
                 document.getElementById('setup').classList.add('hidden');
                 document.getElementById('action').classList.remove('hidden');
-                document.getElementById('status').innerText = "Ligado à rede Moderato.";
+                document.getElementById('status').innerText = "Conectado. Carrega em Mint.";
             } catch (err) {
-                document.getElementById('status').innerText = "Erro na conexão.";
+                document.getElementById('status').innerText = "Erro na ligação.";
             }
         };
         document.getElementById('walletList').innerHTML = "";
         document.getElementById('walletList').appendChild(div);
-    });
-    window.dispatchEvent(new Event("eip6963:requestProvider"));
-
-    // Lógica do Mint
-    document.getElementById('mintBtn').onclick = async () => {
-        const status = document.getElementById('status');
-        try {
-            status.innerText = "A validar transação...";
-            const provider = new ethers.providers.Web3Provider(selectedProvider);
-            const signer = provider.getSigner();
-            const userAddress = await signer.getAddress();
-            
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
-            // Quantidade exata de tokens (9.982.000) com 18 decimais (ajustado para MDMNX)
-            const amount = ethers.utils.parseUnits("9982000", 18); 
-
-            status.innerText = "Assina o Mint na Rabby...";
-            
-            // Gas limit manual para garantir que a rede aceita o pagamento em stablecoin
-            const tx = await contract.mint(userAddress, amount, {
-                gasLimit: 300000 
-            });
-            
-            status.innerHTML = "<b>Transação enviada!</b><br>A aguardar blocos...";
-            await tx.wait();
-            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Kit Resgatado 🚀</b>";
-            
-        } catch (err) {
-            console.error(err);
-            status.innerHTML = `<b style="color:var(--danger);">Erro no Mint</b><br><small>${err.reason || "Verifica o teu endereço e saldo de gás."}</small>`;
-        }
-    };
-</script>
-</body>
-</html>
+        document.getElementById('status').innerText =
