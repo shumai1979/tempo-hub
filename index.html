@@ -10,7 +10,9 @@
         body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
         .btn-mint { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; margin-top: 15px; }
+        .btn-mint:disabled { background: #475569; opacity: 0.6; }
         .wallet-option { background: rgba(255,255,255,0.05); padding: 1rem; margin: 12px 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; border: 1px solid transparent; text-align: left; }
+        .wallet-option:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
         #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; min-height: 60px; }
         .hidden { display: none; }
     </style>
@@ -25,63 +27,77 @@
         </div>
 
         <div id="action" class="hidden">
+            <p style="color:var(--success); font-weight: bold; margin-bottom: 1rem;">✓ Carteira Conectada</p>
             <button id="mintBtn" class="btn-mint">MINT STARTER KIT</button>
         </div>
 
-        <div id="status">A aguardar carteira...</div>
+        <div id="status">A procurar Rabby...</div>
     </div>
 
 <script>
     const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
-    // ABI específica: o contrato de sistema espera que o valor seja tratado como um número inteiro grande
     const ABI = ["function mint(address to, uint256 amount) public"];
     
     let selectedProvider = null;
 
+    // Deteção da Rabby
     window.addEventListener("eip6963:announceProvider", (event) => {
         if (event.detail.info.name !== "Rabby Wallet") return;
         const div = document.createElement("div");
         div.className = "wallet-option";
         div.innerHTML = `<span>Conectar Rabby Wallet</span>`;
         div.onclick = async () => {
-            selectedProvider = event.detail.provider;
-            await new ethers.providers.Web3Provider(selectedProvider).send("eth_requestAccounts", []);
-            document.getElementById('setup').classList.add('hidden');
-            document.getElementById('action').classList.remove('hidden');
-            document.getElementById('status').innerText = "Ligado. Carrega em Mint.";
+            try {
+                selectedProvider = event.detail.provider;
+                await new ethers.providers.Web3Provider(selectedProvider).send("eth_requestAccounts", []);
+                document.getElementById('setup').classList.add('hidden');
+                document.getElementById('action').classList.remove('hidden');
+                document.getElementById('status').innerText = "Ligado. Se o mint falhar, verifica se tens AlphaUSD.";
+            } catch (err) {
+                document.getElementById('status').innerText = "Erro na ligação.";
+            }
         };
+        document.getElementById('walletList').innerHTML = "";
         document.getElementById('walletList').appendChild(div);
+        document.getElementById('status').innerText = "Clica acima para ligar.";
     });
     window.dispatchEvent(new Event("eip6963:requestProvider"));
 
+    // Lógica de Mint
     document.getElementById('mintBtn').onclick = async () => {
         const status = document.getElementById('status');
+        const btn = document.getElementById('mintBtn');
         try {
-            status.innerText = "A preparar os dados do Mint...";
+            btn.disabled = true;
+            status.innerText = "A validar carteira e rede...";
+            
             const provider = new ethers.providers.Web3Provider(selectedProvider);
             const signer = provider.getSigner();
             const userAddress = await signer.getAddress();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // VALOR CORRIGIDO: 9.982.000 com 18 casas decimais (conforme image_15e2e0)
-            // Usamos ethers.utils.parseEther para garantir que os zeros vão todos no formato correto
-            const amount = ethers.utils.parseEther("9982000");
+            // Valor de 9.982.000 tokens com 18 decimais (conforme imagem do explorador)
+            const amount = ethers.BigNumber.from("9982000000000000000000000"); 
 
-            status.innerHTML = "<b>Assina na Rabby agora.</b><br>Deverás ver 'Data' preenchido na carteira.";
+            status.innerHTML = "<b>Assina na Rabby agora.</b><br>Ignora o aviso 'Simulation Not Supported'.";
             
             const tx = await contract.mint(userAddress, amount, {
-                gasLimit: 1000000, // Forçamos o gas para evitar o erro de simulação
+                gasLimit: 800000, 
                 gasPrice: 1000000002 
             });
             
-            status.innerText = "Transação enviada! A aguardar rede...";
+            status.innerHTML = "<b>Pendente...</b><br>A processar na rede Moderato.";
             await tx.wait();
-            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! Verifica o teu saldo. 🚀</b>";
+            status.innerHTML = "<b style='color:var(--success);'>SUCESSO! O Kit foi resgatado. 🚀</b>";
             
         } catch (err) {
             console.error(err);
-            // Se o erro de Rate Limit (429) aparecer na Rabby, avisamos o utilizador
-            status.innerHTML = `<b style="color:var(--danger);">Erro na Rede:</b><br><small>A rede está lenta (Rate Limit). Tenta de novo em 30 segundos.</small>`;
+            btn.disabled = false;
+            if (err.message.includes("429")) {
+                status.innerHTML = `<b style="color:var(--danger);">Erro de Rede (429):</b><br><small>A rede está sobrecarregada. Tenta em 1 minuto.</small>`;
+            } else {
+                status.innerHTML = `<b style="color:var(--danger);">Falha no Contrato:</b><br><small>O contrato rejeitou. Verifica se tens saldo de AlphaUSD para taxas.</small>`;
+            }
         }
     };
 </script>
