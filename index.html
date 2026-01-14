@@ -25,7 +25,7 @@
 <div class="container">
     <h1>Tempo Hub</h1>
     <p>Claim your exclusive Starter Kit on Moderato Network.</p>
-    <button class="btn" id="mintBtn">Connect & Claim</button>
+    <button class="btn" id="mintBtn">CONNECT & CLAIM</button>
     <div id="status">Ready to initialize</div>
     <a id="txLink" href="#" target="_blank" class="explorer-link">View Transaction Proof</a>
 </div>
@@ -43,21 +43,23 @@
     const txLink = document.getElementById('txLink');
 
     mintBtn.onclick = async () => {
-        if (!window.ethereum) return alert("Wallet not found!");
-        
+        // Deteta se é a Rabby ou outra para evitar os erros de "redefine property"
+        const provider_source = window.ethereum;
+        if (!provider_source) return alert("Wallet not found!");
+
         try {
-            // PASSO 1: Forçar sempre a abertura da carteira para conectar
             statusDiv.innerText = "Connecting to wallet...";
-            const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            const provider = new ethers.providers.Web3Provider(provider_source, "any");
+            
+            // Força a conexão imediata
             await provider.send("eth_requestAccounts", []);
             const signer = provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // PASSO 2: Tentar o Mint diretamente (a carteira vai saltar para assinar)
+            // Chama a transação (A carteira salta aqui!)
             statusDiv.innerText = "Signing transaction...";
             const tx = await contract.mintStarterKit({ gasLimit: 150000 });
 
-            // PASSO 3: Se a carteira aceitou a assinatura
             statusDiv.innerHTML = "Transaction sent! Waiting for network...";
             txLink.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
             txLink.style.display = "inline-block";
@@ -69,11 +71,11 @@
 
         } catch (err) {
             console.error(err);
-            // PASSO 4: O erro só aparece se algo falhar no processo
-            if (err.message.includes("execution reverted")) {
+            // Se o erro for de execução (já resgatou)
+            if (err.code === -32603 || err.message.includes("execution reverted")) {
                 statusDiv.innerHTML = "<b style='color:var(--danger);'>REJECTED: Already claimed or no funds.</b>";
             } else {
-                statusDiv.innerText = "Process stopped or canceled.";
+                statusDiv.innerText = "Interaction canceled or network busy.";
             }
         }
     };
