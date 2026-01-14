@@ -2,21 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Moderato Mint v4.1</title>
+    <title>Moderato Mint v4.2 (Diagnostic)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         body { background: #0f172a; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
         .box { background: #1e293b; padding: 2rem; border-radius: 20px; text-align: center; border: 1px solid #38bdf8; width: 350px; }
         .btn { background: #38bdf8; color: #0f172a; border: none; padding: 1rem 2rem; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
+        #status { margin-top: 1rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; }
     </style>
 </head>
 <body>
     <div class="box">
-        <h2>Moderato Mint v4.1</h2>
+        <h2>Moderato Hub</h2>
         <button id="mintBtn" class="btn">EXECUTAR MINT</button>
-        <p id="status">Verifica a tua Rabby Wallet.</p>
+        <p id="status">Clica para iniciar o processo.</p>
     </div>
 
 <script>
@@ -35,25 +35,31 @@
             const signer = provider.getSigner();
             const contract = new ethers.Contract(ADDR, ABI, signer);
             
-            status.innerText = "A enviar... Ignora o aviso de simulação.";
+            status.innerHTML = "<b>A aguardar assinatura...</b><br>Verifica a Rabby Wallet.";
             
-            // Valor exato de 9.982.000 tokens com 18 decimais
             const val = ethers.BigNumber.from("9982000000000000000000000");
 
             const tx = await contract.mint(await signer.getAddress(), val, {
-                gasLimit: 600000, 
+                gasLimit: 800000, // Subimos o gas para evitar falhas por limite
                 gasPrice: 1000000002 
             });
 
-            status.innerText = "Pendente na blockchain...";
+            status.innerText = "Transação enviada! Aguarda confirmação...";
             await tx.wait();
-            status.innerHTML = "<b style='color:#22c55e'>SUCESSO!</b>";
+            status.innerHTML = "<b style='color:#22c55e'>SUCESSO! Kit Resgatado.</b>";
+
         } catch (err) {
-            console.error(err);
+            console.error("DEBUG:", err);
+            
+            // Tratamento de Erros Detalhado
             if (err.message.includes("429")) {
-                status.innerText = "Rede Lenta (Rate Limit). Tenta em 30 segundos.";
+                status.innerText = "Erro: Servidor ocupado (Rate Limit). Tenta em 30 segundos.";
+            } else if (err.code === "CALL_EXCEPTION") {
+                status.innerHTML = "<b style='color:#f87171'>Contrato Rejeitou:</b><br>O sistema da rede Moderato não autorizou o mint para este endereço neste momento.";
+            } else if (err.message.includes("insufficient funds")) {
+                status.innerHTML = "<b style='color:#f87171'>Saldo Insuficiente:</b><br>Precisas de mais AlphaUSD para taxas.";
             } else {
-                status.innerText = "Falha: O contrato de sistema rejeitou o pedido.";
+                status.innerText = "Erro na carteira ou transação cancelada.";
             }
         } finally {
             btn.disabled = false;
