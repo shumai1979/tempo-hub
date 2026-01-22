@@ -2,89 +2,66 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Moderato - Developer Suite</title>
+    <title>Tempo Moderato - Protocol Suite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 420px; border: 1px solid rgba(255,255,255,0.1); }
-        .wallet-list { display: grid; gap: 10px; margin-top: 20px; }
-        .wallet-opt { background: #2d3748; border: 1px solid #4a5568; color: white; padding: 15px; border-radius: 12px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; transition: 0.2s; }
-        .wallet-opt:hover { border-color: var(--primary); background: rgba(56,189,248,0.1); }
-        .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 12px; border-radius: 12px; font-size: 0.75rem; margin-bottom: 20px; display: none; word-break: break-all; }
-        .action-btn { background: var(--success); color: white; border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; display: none; }
-        #status { margin-top: 20px; font-size: 0.8rem; color: #94a3b8; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --error: #f87171; }
+        body { background: var(--bg); color: white; font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; }
+        .wallet-box { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+        .btn-wallet { background: #2d3748; border: 1px solid #4a5568; color: white; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+        .btn-wallet:hover { border-color: var(--primary); }
+        .btn-main { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; display: none; }
+        #status { margin-top: 15px; font-size: 0.8rem; color: #94a3b8; line-height: 1.4; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin:0;">TEMPO PROTOCOL</h2>
-        <p style="color: #94a3b8; font-size: 0.8rem; margin-bottom: 20px;">L1 Moderato - TIP-20 Testing Environment</p>
+        <h3 style="margin:0">TEMPO PROTOCOL</h3>
+        <p style="font-size: 0.75rem; color: var(--primary)">MODERATO L1 - TESTNET SUITE</p>
         
-        <div id="userBadge" class="badge"></div>
-
-        <div id="walletMenu" class="wallet-list">
-            <div class="wallet-opt" onclick="connect('rabby')">Rabby Wallet <span>→</span></div>
-            <div class="wallet-opt" onclick="connect('injected')">MetaMask / Browser <span>→</span></div>
+        <div id="setupView">
+            <div class="wallet-box">
+                <button class="btn-wallet" onclick="init('rabby')">Use Rabby Wallet</button>
+                <button class="btn-wallet" onclick="init('meta')">Use MetaMask / Other</button>
+            </div>
         </div>
 
-        <button id="execBtn" class="action-btn" onclick="executeTest()">EXECUTE TIP-20 CONTRACT TEST</button>
-        <div id="status">Select a provider to initialize session.</div>
+        <div id="activeView" style="display:none">
+            <div id="addrDisplay" style="font-size:0.7rem; background:#0f172a; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #334155"></div>
+            <button id="mintBtn" class="btn-main" onclick="runTask()">EXECUTE TEST TRANSACTION</button>
+        </div>
+
+        <div id="status">Please select your preferred provider.</div>
     </div>
 
 <script>
-    // FIX ABSOLUTO: Validação via ethers para evitar erro de "invalid address"
-    const CONTRACT_RAW = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CONTRACT_ADDR = ethers.utils.getAddress(CONTRACT_RAW.substring(0, 42)); 
+    let signer, userAddress, provider;
 
-    let provider, signer, userAddress;
-
-    async function connect(type) {
+    async function init(type) {
         const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
-        if (!wallet) return alert("Wallet extension not found.");
+        const status = document.getElementById('status');
+
+        if (!wallet) {
+            status.innerHTML = `<span style="color:red">Error: ${type} not found.</span>`;
+            return;
+        }
 
         try {
-            document.getElementById('status').innerText = "Establishing secure handshake...";
+            status.innerText = "Connecting...";
             const accounts = await wallet.request({ method: 'eth_requestAccounts' });
             userAddress = accounts[0];
-            
             provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            // UI Switch
-            document.getElementById('walletMenu').style.display = "none";
-            document.getElementById('userBadge').innerText = "AUTHORIZED: " + userAddress;
-            document.getElementById('userBadge').style.display = "block";
-            document.getElementById('execBtn').style.display = "block";
-            document.getElementById('status').innerText = "Session active on Moderato L1.";
+            document.getElementById('setupView').style.display = 'none';
+            document.getElementById('activeView').style.display = 'block';
+            document.getElementById('mintBtn').style.display = 'block';
+            document.getElementById('addrDisplay').innerText = "Account: " + userAddress;
+            status.innerText = "Connected to Moderato L1.";
         } catch (e) {
-            document.getElementById('status').innerText = "Handshake failed or rejected.";
+            status.innerText = "Connection failed.";
         }
     }
 
-    async function executeTest() {
-        const status = document.getElementById('status');
-        status.innerText = "Simulating TIP-20 asset interaction...";
-        
-        try {
-            const contract = new ethers.Contract(CONTRACT_ADDR, ["function mint(address to, uint256 amount) public"], signer);
-            const gasPrice = await provider.getGasPrice();
-            
-            // Lógica técnica sugerida para testnets de alto tráfego
-            const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1300000,
-                gasPrice: gasPrice.mul(140).div(100) // 40% priority bump para garantir inclusão no bloco
-            });
-
-            status.innerHTML = "Transaction broadcasted. Verifying finality...";
-            await tx.wait(); 
-            status.innerHTML = "<b style='color:#22c55e'>PROTOCOL TEST COMPLETED SUCCESSFULLY.</b>";
-        } catch (err) {
-            console.error(err);
-            // Erro de saldo capturado anteriormente
-            status.innerHTML = "<span style='color:#f87171'>Error: Insufficient USD/USDC balance for protocol fees.</span>";
-        }
-    }
-</script>
-</body>
-</html>
+    async function runTask() {
