@@ -2,72 +2,75 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - VIP Mint</title>
+    <title>Tempo Hub - Airdrop Booster</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 350px; border: 1px solid #334155; }
-        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
-        #status { font-size: 0.8rem; color: #94a3b8; margin-top: 10px; }
-    </style>
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.3s; }
+        .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
+        #status { font-size: 0.8rem; color: #94a3b8; margin-top: 15px; min-height: 40px; }
+    </small></style>
 </head>
 <body>
     <div class="container">
-        <h2>TEMPO HUB</h2>
-        <p style="font-size: 0.7rem; color: var(--primary);">MODERATO TIP-20 MINT</p>
-        <button id="mintBtn" class="btn">MINT STARTER KIT</button>
-        <div id="status">Pronto para interagir.</div>
+        <h2 style="margin:0;">TEMPO HUB</h2>
+        <p style="font-size: 0.7rem; color: var(--primary); letter-spacing: 1px;">MODERATO L1 - TIP20 PROTOCOL</p>
+        
+        <button id="mintBtn" class="btn">MINT STARTER KIT (TIP-20)</button>
+        <button id="batchBtn" class="btn" style="background:#f1f5f9; font-size:0.8rem;">EXECUTE BATCH MINT (5x)</button>
+        
+        <div id="status">Verificando rede Moderato...</div>
     </div>
 
 <script>
-    // Limpeza absoluta do endereço
-    const CONTRACT_RAW = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CONTRACT_ADDR = CONTRACT_RAW.replace(/[^a-fA-F0-9x]/g, "").trim();
+    // LIMPEZA ABSOLUTA: remove qualquer caractere que não seja hexadecimal
+    const RAW_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    const CONTRACT_ADDR = RAW_CONTRACT.replace(/[^a-fA-F0-9x]/g, "").trim();
     const CHAIN_ID = "0xa5bf"; 
 
     const ABI = ["function mint(address to, uint256 amount) public"];
+    const status = document.getElementById('status');
 
-    async function start() {
+    async function executeMint(amountMultiplier = 1) {
         const providerOrigin = window.rabby || window.ethereum;
-        if (!providerOrigin) return alert("Instala a Rabby Wallet!");
+        if (!providerOrigin) { status.innerText = "Instale a Rabby Wallet!"; return; }
 
-        const btn = document.getElementById('mintBtn');
-        const status = document.getElementById('status');
+        try {
+            // Corrige "unknown account #0" forçando eth_requestAccounts
+            const accounts = await providerOrigin.request({ method: 'eth_requestAccounts' });
+            const user = accounts[0];
+            const provider = new ethers.providers.Web3Provider(providerOrigin, "any");
+            const signer = provider.getSigner();
 
-        btn.onclick = async () => {
-            try {
-                btn.disabled = true;
-                // Resolve "unknown account #0"
-                const accounts = await providerOrigin.request({ method: 'eth_requestAccounts' });
-                const provider = new ethers.providers.Web3Provider(providerOrigin, "any");
-                const signer = provider.getSigner();
+            status.innerText = "Preparando Transação TIP-20...";
 
-                status.innerText = "Configurando Taxas TIP-20...";
+            // Lógica de Gas Price e Fees da documentação Tempo
+            const gasPrice = await provider.getGasPrice();
+            const txParams = {
+                gasLimit: 1200000, // Limite extra para garantir execução na Moderato
+                gasPrice: gasPrice.mul(120).div(100) // 20% acima para prioridade no airdrop
+            };
 
-                // Lógica de transação sugerida pela documentação Tempo
-                const txParams = {
-                    gasLimit: 1000000, // Limite alto para evitar falha na estimativa
-                    gasPrice: await provider.getGasPrice(), // Obtém o preço atual da rede
-                };
+            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+            
+            status.innerText = "Assine na sua Rabby...";
+            const amount = ethers.utils.parseUnits(amountMultiplier.toString(), 18);
+            const tx = await contract.mint(user, amount, txParams);
 
-                const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
-                
-                status.innerText = "Aguardando assinatura na Rabby...";
-                const tx = await contract.mint(accounts[0], ethers.utils.parseUnits("1", 18), txParams);
+            status.innerHTML = `Transação em bloco!<br><small>${tx.hash.slice(0,20)}...</small>`;
+            await tx.wait(); // Finalidade sub-segundo da Tempo
+            status.innerHTML = "<b style='color:#22c55e'>SUCESSO: RECOMPENSA MINTADA!</b>";
 
-                status.innerHTML = `Enviada! <br><small>${tx.hash.substring(0,15)}...</small>`;
-                await tx.wait();
-                status.innerHTML = "<b style='color:#22c55e'>MINT COM SUCESSO!</b>";
-            } catch (err) {
-                console.error(err);
-                status.innerText = "Erro: " + err.message.substring(0, 40);
-            } finally {
-                btn.disabled = false;
-            }
-        };
+        } catch (err) {
+            console.error(err);
+            status.innerHTML = `<span style="color:#f87171">Erro: Verifique o endereço ou saldo de USD.</span>`;
+        }
     }
-    start();
+
+    document.getElementById('mintBtn').onclick = () => executeMint(1);
+    document.getElementById('batchBtn').onclick = () => executeMint(5);
 </script>
 </body>
 </html>
