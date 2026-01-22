@@ -24,14 +24,14 @@
         <h1>TEMPO HUB</h1>
         <span class="status-tag">Moderato L1 - Fee AMM Active</span>
         <button id="mainBtn" class="btn-action">MINT STARTER KIT</button>
-        <div id="displayStatus">Aguardando conexão com a Rabby...</div>
+        <div id="displayStatus">Conecte a sua Rabby Wallet.</div>
     </div>
 
 <script>
-    // Endereço limpo manualmente para evitar erro "invalid address"
-    const CONTRACT_RAW = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CONTRACT_ADDRESS = CONTRACT_RAW.replace(/\s/g, ''); 
-    const CHAIN_ID = "0xa5bf"; 
+    // Limpeza absoluta do endereço para evitar o erro "invalid address"
+    const RAW_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    const CONTRACT_ADDRESS = RAW_ADDR.replace(/\s+/g, '').trim(); 
+    const CHAIN_ID = "0xa5bf"; // 42431
 
     const ABI = ["function mint(address to, uint256 amount) public"];
 
@@ -39,34 +39,33 @@
     const status = document.getElementById('displayStatus');
 
     async function handleMint() {
-        // SOLUÇÃO PARA O CONFLITO: Prioriza a Rabby Wallet se ela estiver presente
+        // Deteta a Rabby especificamente para evitar conflitos
         const providerOrigin = window.rabby || window.ethereum;
 
         if (!providerOrigin) {
-            status.innerHTML = "<span class='error'>Erro: Rabby Wallet não detectada!</span>";
+            status.innerHTML = "<span class='error'>Erro: Rabby Wallet não detetada.</span>";
             return;
         }
 
         btn.disabled = true;
-        status.innerText = "A chamar a carteira...";
+        status.innerText = "A solicitar acesso à carteira...";
 
         try {
-            // Força o pedido de contas para resolver o erro "unknown account"
+            // SOLUÇÃO PARA "unknown account #0": Força o pedido de contas primeiro
             const accounts = await providerOrigin.request({ method: 'eth_requestAccounts' });
-            
+            if (accounts.length === 0) throw new Error("Nenhuma conta encontrada.");
+
             const provider = new ethers.providers.Web3Provider(providerOrigin, "any");
             const signer = provider.getSigner();
             const userAddress = accounts[0];
 
             status.innerText = "A validar rede Moderato...";
 
-            // Garante que a carteira está na rede correta
-            try {
-                await providerOrigin.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: CHAIN_ID }],
-                });
-            } catch (err) {
+            // Garante a rede correta
+            await providerOrigin.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: CHAIN_ID }],
+            }).catch(async (err) => {
                 if (err.code === 4902) {
                     await providerOrigin.request({
                         method: 'wallet_addEthereumChain',
@@ -79,24 +78,24 @@
                         }],
                     });
                 }
-            }
+            });
 
-            status.innerHTML = "A enviar Mint...<br><small>Finalidade sub-segundo</small>";
+            status.innerHTML = "A enviar Mint...<br><small>Finalidade sub-segundo na Tempo</small>";
             
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
             
-            // Gas Limit manual para evitar erro de estimativa na rede de teste
+            // Gas manual alto para garantir sucesso com os seus USD
             const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
                 gasLimit: 600000 
             });
 
             status.innerHTML = `Pendente...<br><small>Hash: ${tx.hash.substring(0,20)}...</small>`;
             await tx.wait();
-            status.innerHTML = "<span class='success'>MINT REALIZADO COM SUCESSO!</span>";
+            status.innerHTML = "<span class='success'>MINT CONCLUÍDO COM SUCESSO!</span>";
 
         } catch (error) {
-            console.error("Erro detalhado:", error);
-            status.innerHTML = `<span class='error'>Erro: ${error.message.substring(0, 50)}</span>`;
+            console.error(error);
+            status.innerHTML = `<span class='error'>Erro: ${error.message.substring(0, 55)}...</span>`;
         } finally {
             btn.disabled = false;
         }
