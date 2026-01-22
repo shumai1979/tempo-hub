@@ -10,7 +10,7 @@
         body { 
             background: var(--bg); 
             color: white; 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
@@ -27,7 +27,6 @@
             max-width: 400px; 
             box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
         }
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
         .status-tag { 
             color: var(--primary); 
             font-size: 0.65rem; 
@@ -50,16 +49,15 @@
             transition: all 0.2s ease;
         }
         .btn-action:hover { transform: translateY(-2px); opacity: 0.9; }
-        .btn-action:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        .btn-action:disabled { background: #475569; cursor: not-allowed; }
         #displayStatus { 
             margin-top: 1.5rem; 
             font-size: 0.85rem; 
             color: #94a3b8; 
-            line-height: 1.5; 
             min-height: 60px;
         }
-        .success { color: var(--success); font-weight: bold; }
-        .error { color: var(--danger); font-weight: bold; }
+        .success { color: var(--success); }
+        .error { color: var(--danger); }
     </style>
 </head>
 <body>
@@ -71,37 +69,80 @@
         <button id="mainBtn" class="btn-action">MINT STARTER KIT</button>
         
         <div id="displayStatus">
-            Conecte a Rabby Wallet para interagir com a rede Moderato.
+            Conecte a Rabby Wallet para interagir.
         </div>
     </div>
 
 <script>
-    // Configurações Oficiais extraídas do Explorador
+    // Configurações da Rede Moderato (Tempo)
+    const MODERATO_PARAMS = {
+        chainId: "0xa5bf", // 42431
+        chainName: "Moderato Testnet",
+        nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+        rpcUrls: ["https://rpc.moderato.tempo.xyz"],
+        blockExplorerUrls: ["https://explorer.moderato.tempo.xyz"]
+    };
+
     const CONTRACT_ADDRESS = "0x20c0000000000000000000000000000000000005";
     const ABI = ["function mint(address to, uint256 amount) public"];
-    const CHAIN_ID = "0xa5bf"; // 42431
 
     const btn = document.getElementById('mainBtn');
     const status = document.getElementById('displayStatus');
 
-    btn.onclick = async () => {
-        btn.disabled = true;
-        status.innerText = "A ligar à Rabby Wallet...";
+    async function init() {
+        if (!window.ethereum) {
+            status.innerHTML = "<span class='error'>Instale a Rabby Wallet!</span>";
+            return;
+        }
 
-        try {
-            if (!window.ethereum) {
-                status.innerHTML = "<span class='error'>Erro: Rabby Wallet não detetada.</span>";
+        btn.onclick = async () => {
+            btn.disabled = true;
+            status.innerText = "A processar...";
+
+            try {
+                // 1. Solicitar conta
+                const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                await provider.send("eth_requestAccounts", []);
+                const signer = provider.getSigner();
+                const userAddress = await signer.getAddress();
+
+                // 2. Verificar/Trocar rede
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: MODERATO_PARAMS.chainId }],
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [MODERATO_PARAMS],
+                        });
+                    }
+                }
+
+                // 3. Executar Mint (Utilizando Fee AMM nativo se disponível)
+                status.innerText = "Assine a transação na carteira...";
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+                
+                // Mint de 1000 tokens (ajustado para 18 decimais)
+                const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1000", 18));
+                
+                status.innerHTML = `Transação enviada!<br><small>${tx.hash.substring(0,20)}...</small>`;
+                
+                await tx.wait();
+                status.innerHTML = "<span class='success'>MINT CONCLUÍDO! Verifique o explorador.</span>";
+
+            } catch (err) {
+                console.error(err);
+                status.innerHTML = `<span class='error'>Erro: ${err.message.substring(0, 50)}...</span>`;
+            } finally {
                 btn.disabled = false;
-                return;
             }
+        };
+    }
 
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            
-            // Garantir que estamos na rede certa
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: CHAIN_ID }],
-            }).catch(async (err) => {
-                if (err.code === 4902) {
-                    status.innerText = "Adicionando rede Moderato...";
-                    await window
+    init();
+</script>
+</body>
+</html>
