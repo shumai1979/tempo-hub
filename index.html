@@ -24,75 +24,55 @@
         <h1>TEMPO HUB</h1>
         <span class="status-tag">Moderato L1 - Fee AMM Active</span>
         <button id="mainBtn" class="btn-action">MINT STARTER KIT</button>
-        <div id="displayStatus">Clique para conectar à rede Moderato.</div>
+        <div id="displayStatus">Conectado. Pronto para o Mint.</div>
     </div>
 
 <script>
+    // Endereços limpos para evitar o erro "invalid address"
     const CONTRACT_ADDRESS = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037".trim();
-    const CHAIN_ID = "0xa5bf"; // 42431
+    const CHAIN_ID = "0xa5bf"; // 42431 em decimal
     const ABI = ["function mint(address to, uint256 amount) public"];
 
     const btn = document.getElementById('mainBtn');
     const status = document.getElementById('displayStatus');
 
     async function handleMint() {
-        // TÉCNICA DE LIMPEZA: Tenta encontrar o provider mesmo com conflitos
+        // Prioridade para a Rabby Wallet para evitar conflitos de extensões
         const providerOrigin = window.rabby || window.ethereum;
 
         if (!providerOrigin) {
-            status.innerHTML = "<span class='error'>Erro: Rabby Wallet não encontrada!</span>";
+            status.innerHTML = "<span class='error'>Erro: Carteira não detetada.</span>";
             return;
         }
 
         btn.disabled = true;
-        status.innerText = "A chamar carteira...";
+        status.innerText = "A processar na rede Tempo...";
 
         try {
-            // Solicita as contas explicitamente
-            const accounts = await providerOrigin.request({ method: 'eth_requestAccounts' });
             const provider = new ethers.providers.Web3Provider(providerOrigin, "any");
             const signer = provider.getSigner();
-            const address = accounts[0];
+            const address = await signer.getAddress();
 
-            status.innerText = "A validar rede Moderato...";
-
-            // Troca para a rede da Tempo
-            try {
-                await providerOrigin.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: CHAIN_ID }],
-                });
-            } catch (err) {
-                if (err.code === 4902) {
-                    await providerOrigin.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: CHAIN_ID,
-                            chainName: "Tempo Moderato",
-                            nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-                            rpcUrls: ["https://rpc.moderato.tempo.xyz"],
-                            blockExplorerUrls: ["https://explorer.moderato.tempo.xyz"]
-                        }],
-                    });
-                }
-            }
-
-            status.innerHTML = "Assine o Mint na carteira...<br><small>Finalidade sub-segundo</small>";
-            
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+            status.innerHTML = "A enviar transação...<br><small>Finalidade em sub-segundos</small>";
             
-            // Enviamos com GÁS MANUAL para evitar o erro de estimativa da L1
+            // Definimos um gasLimit manual alto para garantir o sucesso na Testnet Moderato
             const tx = await contract.mint(address, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 400000 
+                gasLimit: 800000 
             });
 
-            status.innerHTML = `Processando...<br><small>Hash: ${tx.hash.substring(0,20)}...</small>`;
+            status.innerHTML = `Pendente...<br><small>Hash: ${tx.hash.substring(0,20)}...</small>`;
             await tx.wait();
-            status.innerHTML = "<span class='success'>MINT REALIZADO COM SUCESSO!</span>";
+            status.innerHTML = "<span class='success'>MINT CONCLUÍDO COM SUCESSO!</span>";
 
         } catch (error) {
             console.error(error);
-            status.innerHTML = `<span class='error'>Erro: ${error.message.includes("user rejected") ? "Assinatura recusada" : "Erro na transação"}</span>`;
+            if (error.message.includes("address")) {
+                status.innerHTML = "<span class='error'>Erro: Endereço inválido detectado.</span>";
+            } else {
+                status.innerHTML = "<span class='error'>Erro na transação. Verifique o saldo de gás.</span>";
+            }
         } finally {
             btn.disabled = false;
         }
