@@ -7,25 +7,28 @@
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 24px; text-align: center; width: 380px; border: 1px solid rgba(255,255,255,0.1); }
-        .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 0.5rem; border-radius: 10px; font-size: 0.75rem; margin-bottom: 1rem; display: none; }
-        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; }
-        #status { margin-top: 1.5rem; font-size: 0.8rem; color: #94a3b8; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .user-info { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 0.8rem; border-radius: 12px; font-size: 0.75rem; margin-bottom: 1.5rem; display: none; word-break: break-all; border: 1px solid rgba(56, 189, 248, 0.2); }
+        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        #status { margin-top: 1.5rem; font-size: 0.8rem; color: #94a3b8; min-height: 45px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>TEMPO BUILDER</h2>
-        <div id="userBadge" class="badge"></div>
-        <button id="connectBtn" class="btn">CONECTAR RABBY</button>
-        <button id="mintBtn" class="btn" style="display:none; background: var(--success); color: white;">MINT COM PROVA DE AUTOR</button>
-        <div id="status">Ligue a carteira na rede Moderato.</div>
+        <h2 style="margin: 0 0 1rem 0;">TEMPO BUILDER</h2>
+        <div id="userBadge" class="user-info"></div>
+        
+        <button id="connectBtn" class="btn">CONECTAR CARTEIRA</button>
+        <button id="mintBtn" class="btn" style="display:none; background: var(--success); color: white;">MINT STARTER KIT (TIP-20)</button>
+        
+        <div id="status">Ligue a Rabby Wallet na rede Moderato.</div>
     </div>
 
 <script>
-    // FIX DE ENDEREÇO: Cortado para exatamente 42 caracteres para evitar erro de "invalid address"
+    // FIX DE ENDEREÇO: Remove caracteres extra e valida o checksum
     const RAW_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CONTRACT_ADDR = RAW_ADDR.substring(0, 42); 
+    const CONTRACT_ADDR = ethers.utils.getAddress(RAW_ADDR.substring(0, 42)); 
     const CHAIN_ID = "0xa5bf"; 
 
     const ABI = ["function mint(address to, uint256 amount) public"];
@@ -33,31 +36,25 @@
     let provider, signer, userAddress;
 
     async function connect() {
-        // Resolve conflito de múltiplas extensões forçando a Rabby
-        const walletProvider = window.rabby || window.ethereum;
-        
-        if (!walletProvider) {
-            document.getElementById('status').innerText = "Rabby não instalada!";
-            return;
-        }
+        const wallet = window.rabby || window.ethereum;
+        if (!wallet) return alert("Instale a Rabby Wallet!");
 
         try {
-            // Força a abertura da carteira
-            const accounts = await walletProvider.request({ method: 'eth_requestAccounts' });
+            // Força o pedido de contas para evitar "unknown account"
+            const accounts = await wallet.request({ method: 'eth_requestAccounts' });
             userAddress = accounts[0];
             
-            provider = new ethers.providers.Web3Provider(walletProvider, "any");
+            provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            // UI Update
-            document.getElementById('userBadge').innerText = "Autor: " + userAddress;
+            // Atualiza Interface
+            document.getElementById('userBadge').innerText = "AUTOR: " + userAddress;
             document.getElementById('userBadge').style.display = "block";
             document.getElementById('connectBtn').style.display = "none";
             document.getElementById('mintBtn').style.display = "block";
-            document.getElementById('status').innerText = "Ligado com sucesso!";
-        } catch (err) {
-            console.error(err);
-            document.getElementById('status').innerText = "Erro ao ligar: " + err.message.substring(0, 30);
+            document.getElementById('status').innerText = "Conectado com sucesso!";
+        } catch (e) {
+            document.getElementById('status').innerText = "Erro: Conexão rejeitada.";
         }
     }
 
@@ -67,19 +64,22 @@
         
         try {
             const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+            
+            // Lógica de Taxas oficial da Tempo
             const gasPrice = await provider.getGasPrice();
             
-            // Lógica de transação Tempo com Prova de Autoria
+            // Executa o Mint com prova de autor on-chain para o airdrop
             const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1000000,
-                gasPrice: gasPrice.mul(120).div(100) // 20% extra para prioridade de airdrop
+                gasLimit: 1200000,
+                gasPrice: gasPrice.mul(125).div(100) // 25% extra para garantir prioridade no bloco
             });
 
-            status.innerHTML = "Enviada! <br> Aguarde confirmação...";
+            status.innerHTML = `Enviada! <br> <small>${tx.hash.substring(0,25)}...</small>`;
             await tx.wait();
-            status.innerHTML = "<b style='color:#22c55e'>MINT E PROVA GRAVADOS!</b>";
+            status.innerHTML = "<b style='color:#22c55e'>MINT CONCLUÍDO COM SUCESSO!</b>";
         } catch (err) {
-            status.innerText = "Erro: Verifique saldo de taxas.";
+            console.error(err);
+            status.innerText = "Erro: Verifique o saldo de taxas (USDC/USD).";
         }
     }
 
