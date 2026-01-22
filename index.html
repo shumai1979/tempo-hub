@@ -2,75 +2,65 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Airdrop Booster</title>
+    <title>Tempo Hub - Official Developer Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.3s; }
-        .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
-        #status { font-size: 0.8rem; color: #94a3b8; margin-top: 15px; min-height: 40px; }
-    </small></style>
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; }
+        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        #status { font-size: 0.8rem; color: #94a3b8; margin-top: 15px; }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin:0;">TEMPO HUB</h2>
-        <p style="font-size: 0.7rem; color: var(--primary); letter-spacing: 1px;">MODERATO L1 - TIP20 PROTOCOL</p>
-        
-        <button id="mintBtn" class="btn">MINT STARTER KIT (TIP-20)</button>
-        <button id="batchBtn" class="btn" style="background:#f1f5f9; font-size:0.8rem;">EXECUTE BATCH MINT (5x)</button>
-        
-        <div id="status">Verificando rede Moderato...</div>
+        <h2>TEMPO HUB</h2>
+        <p style="color: var(--primary); font-size: 0.7rem;">AUTHOR VERIFIED MINT</p>
+        <button id="mintBtn" class="btn">MINT COM PROVA DE AUTOR</button>
+        <div id="status">Aguardando...</div>
     </div>
 
 <script>
-    // LIMPEZA ABSOLUTA: remove qualquer caractere que não seja hexadecimal
-    const RAW_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CONTRACT_ADDR = RAW_CONTRACT.replace(/[^a-fA-F0-9x]/g, "").trim();
-    const CHAIN_ID = "0xa5bf"; 
+    // Identificador único para o teu Airdrop (Muda se quiseres uma palavra tua)
+    const DEV_IDENTIFIER = "TEMPO_BUILDER_PROOFOFAUTHOR"; 
+    
+    const RAW_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    const CONTRACT_ADDR = RAW_ADDR.replace(/[^a-fA-F0-9x]/g, "").trim();
+    const CHAIN_ID = "0xa5bf";
 
-    const ABI = ["function mint(address to, uint256 amount) public"];
-    const status = document.getElementById('status');
-
-    async function executeMint(amountMultiplier = 1) {
+    async function handleMint() {
         const providerOrigin = window.rabby || window.ethereum;
-        if (!providerOrigin) { status.innerText = "Instale a Rabby Wallet!"; return; }
-
+        const status = document.getElementById('status');
+        
         try {
-            // Corrige "unknown account #0" forçando eth_requestAccounts
             const accounts = await providerOrigin.request({ method: 'eth_requestAccounts' });
-            const user = accounts[0];
             const provider = new ethers.providers.Web3Provider(providerOrigin, "any");
             const signer = provider.getSigner();
 
-            status.innerText = "Preparando Transação TIP-20...";
-
-            // Lógica de Gas Price e Fees da documentação Tempo
+            // Seguindo a especificação de transações da Tempo (docs.tempo.xyz)
             const gasPrice = await provider.getGasPrice();
-            const txParams = {
-                gasLimit: 1200000, // Limite extra para garantir execução na Moderato
-                gasPrice: gasPrice.mul(120).div(100) // 20% acima para prioridade no airdrop
-            };
-
-            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
             
-            status.innerText = "Assine na sua Rabby...";
-            const amount = ethers.utils.parseUnits(amountMultiplier.toString(), 18);
-            const tx = await contract.mint(user, amount, txParams);
+            const contract = new ethers.Contract(CONTRACT_ADDR, ["function mint(address to, uint256 amount) public"], signer);
 
-            status.innerHTML = `Transação em bloco!<br><small>${tx.hash.slice(0,20)}...</small>`;
-            await tx.wait(); // Finalidade sub-segundo da Tempo
-            status.innerHTML = "<b style='color:#22c55e'>SUCESSO: RECOMPENSA MINTADA!</b>";
+            status.innerText = "Assinando com Prova de Autoria...";
 
+            // A mágica acontece aqui: enviamos o Mint e gravamos o teu ID na transação
+            const tx = await contract.mint(accounts[0], ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1200000,
+                gasPrice: gasPrice.mul(120).div(100), // Prioridade Airdrop
+                // Adiciona um comentário hexadecimal no final da transação para provar autoria
+                data: contract.interface.encodeFunctionData("mint", [accounts[0], ethers.utils.parseUnits("1", 18)]) + 
+                      ethers.utils.hexlify(ethers.utils.toUtf8Bytes(DEV_IDENTIFIER)).slice(2)
+            });
+
+            status.innerHTML = `Sucesso! <br> Hash: <a href="https://explorer.moderato.tempo.xyz/tx/${tx.hash}" target="_blank" style="color:white">${tx.hash.slice(0,10)}...</a>`;
+            await tx.wait();
         } catch (err) {
-            console.error(err);
-            status.innerHTML = `<span style="color:#f87171">Erro: Verifique o endereço ou saldo de USD.</span>`;
+            status.innerText = "Erro: " + err.message.substring(0, 40);
         }
     }
 
-    document.getElementById('mintBtn').onclick = () => executeMint(1);
-    document.getElementById('batchBtn').onclick = () => executeMint(5);
+    document.getElementById('mintBtn').onclick = handleMint;
 </script>
 </body>
 </html>
