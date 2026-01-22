@@ -55,3 +55,83 @@
             font-size: 0.85rem; 
             color: #94a3b8; 
             min-height: 60px;
+            line-height: 1.4;
+        }
+        .success { color: var(--success); font-weight: bold; }
+        .error { color: var(--danger); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>TEMPO HUB</h1>
+        <span class="status-tag">Moderato L1 - Fee AMM Active</span>
+        
+        <button id="mainBtn" class="btn-action">MINT STARTER KIT</button>
+        
+        <div id="displayStatus">
+            Conecte a Rabby Wallet (Rede Moderato)
+        </div>
+    </div>
+
+<script>
+    // Endereços extraídos das tuas imagens e limpos de caracteres invisíveis
+    const CONTRACT_ADDRESS = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037".trim();
+    const CHAIN_ID = "0xa5bf"; // 42431 em hexadecimal
+
+    const ABI = ["function mint(address to, uint256 amount) public"];
+
+    const btn = document.getElementById('mainBtn');
+    const status = document.getElementById('displayStatus');
+
+    async function handleMint() {
+        if (typeof window.ethereum === 'undefined') {
+            status.innerHTML = "<span class='error'>Erro: Instale a Rabby Wallet.</span>";
+            return;
+        }
+
+        btn.disabled = true;
+        status.innerText = "A validar conexão na rede Tempo...";
+
+        try {
+            const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await provider.send("eth_requestAccounts", []);
+            const signer = provider.getSigner();
+            const address = await signer.getAddress();
+
+            // Garantir que estamos na rede Moderato
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: CHAIN_ID }],
+                });
+            } catch (err) {
+                if (err.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: CHAIN_ID,
+                            chainName: "Tempo Moderato",
+                            nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+                            rpcUrls: ["https://rpc.moderato.tempo.xyz"],
+                            blockExplorerUrls: ["https://explorer.moderato.tempo.xyz"]
+                        }],
+                    });
+                }
+            }
+
+            status.innerHTML = "A enviar Mint...<br><small>Escolha o token de taxa na Rabby</small>";
+            
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            
+            // Usamos gas manual para evitar o erro de estimativa (TIP20) da Tempo
+            const tx = await contract.mint(address, ethers.utils.parseUnits("1", 18), {
+                gasLimit: 500000 
+            });
+
+            status.innerHTML = `Processando...<br><small>Hash: ${tx.hash.substring(0,20)}...</small>`;
+            
+            await tx.wait();
+            status.innerHTML = "<span class='success'>MINT REALIZADO COM SUCESSO!</span>";
+
+        } catch (error) {
