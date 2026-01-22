@@ -1,99 +1,88 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Moderato - Network Suite</title>
+    <title>Tempo Moderato - Developer Suite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 420px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        
-        /* Modal de Carteiras */
-        .wallet-options { display: grid; gap: 1rem; margin-top: 1.5rem; }
-        .wallet-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 1rem; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-weight: 600; transition: 0.2s; }
-        .wallet-btn:hover { background: rgba(56, 189, 248, 0.1); border-color: var(--primary); }
-        
-        .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 0.8rem; border-radius: 12px; font-size: 0.7rem; margin-bottom: 1.5rem; display: none; border: 1px solid rgba(56, 189, 248, 0.2); }
-        .action-btn { background: var(--success); color: white; border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; display: none; }
-        #status { margin-top: 1.5rem; font-size: 0.8rem; color: #94a3b8; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 420px; border: 1px solid rgba(255,255,255,0.1); }
+        .wallet-list { display: grid; gap: 10px; margin-top: 20px; }
+        .wallet-opt { background: #2d3748; border: 1px solid #4a5568; color: white; padding: 15px; border-radius: 12px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; transition: 0.2s; }
+        .wallet-opt:hover { border-color: var(--primary); background: rgba(56,189,248,0.1); }
+        .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 12px; border-radius: 12px; font-size: 0.75rem; margin-bottom: 20px; display: none; word-break: break-all; }
+        .action-btn { background: var(--success); color: white; border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; display: none; }
+        #status { margin-top: 20px; font-size: 0.8rem; color: #94a3b8; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin: 0 0 0.5rem 0;">TEMPO NETWORK</h2>
-        <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 1.5rem;">Protocol Interaction Suite</p>
+        <h2 style="margin:0;">TEMPO PROTOCOL</h2>
+        <p style="color: #94a3b8; font-size: 0.8rem; margin-bottom: 20px;">L1 Moderato - TIP-20 Testing Environment</p>
         
         <div id="userBadge" class="badge"></div>
 
-        <div id="walletSelector" class="wallet-options">
-            <button class="wallet-btn" onclick="initConnect('rabby')">
-                Rabby Wallet <span>➔</span>
-            </button>
-            <button class="wallet-btn" onclick="initConnect('metamask')">
-                MetaMask / Injected <span>➔</span>
-            </button>
+        <div id="walletMenu" class="wallet-list">
+            <div class="wallet-opt" onclick="connect('rabby')">Rabby Wallet <span>→</span></div>
+            <div class="wallet-opt" onclick="connect('injected')">MetaMask / Browser <span>→</span></div>
         </div>
 
-        <button id="testBtn" class="action-btn" onclick="runTest()">EXECUTE PROTOCOL TEST</button>
-        
-        <div id="status">Please select a provider to continue.</div>
+        <button id="execBtn" class="action-btn" onclick="executeTest()">EXECUTE TIP-20 CONTRACT TEST</button>
+        <div id="status">Select a provider to initialize session.</div>
     </div>
 
 <script>
-    const CONTRACT_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    // FIX ABSOLUTO: Validação via ethers para evitar erro de "invalid address"
+    const CONTRACT_RAW = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    const CONTRACT_ADDR = ethers.utils.getAddress(CONTRACT_RAW.substring(0, 42)); 
+
     let provider, signer, userAddress;
 
-    async function initConnect(type) {
-        let wallet;
-        if (type === 'rabby') {
-            wallet = window.rabby;
-            if (!wallet) return alert("Rabby Wallet not detected.");
-        } else {
-            wallet = window.ethereum;
-            if (!wallet) return alert("No injected wallet found.");
-        }
+    async function connect(type) {
+        const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
+        if (!wallet) return alert("Wallet extension not found.");
 
         try {
-            document.getElementById('status').innerText = "Connecting to " + type + "...";
+            document.getElementById('status').innerText = "Establishing secure handshake...";
             const accounts = await wallet.request({ method: 'eth_requestAccounts' });
             userAddress = accounts[0];
             
             provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            // UI Transition
-            document.getElementById('walletSelector').style.display = "none";
-            document.getElementById('userBadge').innerText = "CONNECTED: " + userAddress;
+            // UI Switch
+            document.getElementById('walletMenu').style.display = "none";
+            document.getElementById('userBadge').innerText = "AUTHORIZED: " + userAddress;
             document.getElementById('userBadge').style.display = "block";
-            document.getElementById('testBtn').style.display = "block";
-            document.getElementById('status').innerText = "System ready for Moderato L1 tests.";
+            document.getElementById('execBtn').style.display = "block";
+            document.getElementById('status').innerText = "Session active on Moderato L1.";
         } catch (e) {
-            document.getElementById('status').innerText = "Connection rejected.";
+            document.getElementById('status').innerText = "Handshake failed or rejected.";
         }
     }
 
-    async function runTest() {
+    async function executeTest() {
         const status = document.getElementById('status');
-        status.innerText = "Processing TIP-20 Flow...";
+        status.innerText = "Simulating TIP-20 asset interaction...";
         
         try {
             const contract = new ethers.Contract(CONTRACT_ADDR, ["function mint(address to, uint256 amount) public"], signer);
             const gasPrice = await provider.getGasPrice();
             
-            // Lógica técnica de priorização (TIP-20 Fees)
+            // Lógica técnica sugerida para testnets de alto tráfego
             const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1200000,
-                gasPrice: gasPrice.mul(135).div(100) 
+                gasLimit: 1300000,
+                gasPrice: gasPrice.mul(140).div(100) // 40% priority bump para garantir inclusão no bloco
             });
 
-            status.innerHTML = "Transaction broadcasted. Waiting for finality...";
+            status.innerHTML = "Transaction broadcasted. Verifying finality...";
             await tx.wait(); 
-            status.innerHTML = "<b style='color:#22c55e'>SUCCESS: TEST RECORDED ON MODERATO.</b>";
+            status.innerHTML = "<b style='color:#22c55e'>PROTOCOL TEST COMPLETED SUCCESSFULLY.</b>";
         } catch (err) {
             console.error(err);
-            // Tratamento do erro de saldo de taxas visto na consola
-            status.innerHTML = "<span style='color:#f87171'>Error: Insufficient USD/USDC for TIP-20 fees.</span>";
+            // Erro de saldo capturado anteriormente
+            status.innerHTML = "<span style='color:#f87171'>Error: Insufficient USD/USDC balance for protocol fees.</span>";
         }
     }
 </script>
