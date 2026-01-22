@@ -3,50 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempo Hub - Moderato Fixed</title>
+    <title>Tempo Hub - TIP20 Mint</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; --danger: #f87171; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 350px; }
-        .btn-action { background: var(--primary); color: var(--bg); border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        #displayStatus { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; min-height: 40px; }
-        .error { color: var(--danger); }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 350px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .btn-action { background: var(--primary); color: var(--bg); border: none; padding: 1.2rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem; transition: 0.2s; }
+        .btn-action:hover { transform: translateY(-2px); opacity: 0.9; }
+        .btn-action:disabled { background: #475569; cursor: not-allowed; }
+        #displayStatus { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; min-height: 40px; }
+        .error { color: var(--danger); font-weight: bold; }
+        .success { color: var(--success); font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin-top:0">TEMPO HUB</h2>
-        <p style="font-size:0.7rem; color:var(--primary); letter-spacing:1px">MODERATO NETWORK</p>
+        <h1 style="margin: 0 0 0.5rem 0; font-size: 1.5rem;">TEMPO HUB</h1>
+        <p style="color: var(--primary); font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 2rem;">MODERATO L1 - TIP20 ENABLED</p>
         <button id="mainBtn" class="btn-action">MINT STARTER KIT</button>
-        <div id="displayStatus">Clique para iniciar</div>
+        <div id="displayStatus">Clique para conectar a Rabby.</div>
     </div>
 
 <script>
-    // Limpeza absoluta do endereço para evitar erro de "invalid address"
-    const ADDR_RAW = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CONTRACT_ADDRESS = ADDR_RAW.replace(/[^a-fA-F0-9x]/g, ""); 
-    const CHAIN_ID = "0xa5bf"; 
+    // Limpeza rigorosa: remove qualquer caractere que não seja hexadecimal
+    const RAW_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    const CONTRACT_ADDRESS = RAW_ADDR.replace(/[^a-fA-F0-9x]/g, "").trim();
+    const CHAIN_ID = "0xa5bf"; // 42431
 
     const ABI = ["function mint(address to, uint256 amount) public"];
     const btn = document.getElementById('mainBtn');
     const status = document.getElementById('displayStatus');
 
     async function handleMint() {
-        // Tenta usar o provider específico da Rabby para saltar o erro de "Cannot redefine property"
+        // SOLUÇÃO PARA CONFLITOS: Prioriza Rabby se estiver presente
         const providerOrigin = window.rabby || window.ethereum;
 
         if (!providerOrigin) {
-            status.innerHTML = "<span class='error'>Instale a Rabby Wallet.</span>";
+            status.innerHTML = "<span class='error'>Carteira não detetada.</span>";
             return;
         }
 
         btn.disabled = true;
-        status.innerText = "A ligar à Rabby...";
+        status.innerText = "A solicitar acesso...";
 
         try {
-            // Garante que temos a conta antes de qualquer outra ação para evitar "unknown account #0"
+            // Garante a obtenção da conta ANTES de criar o signer
             const accounts = await providerOrigin.request({ method: 'eth_requestAccounts' });
+            if (accounts.length === 0) throw new Error("Acesso recusado.");
             const user = accounts[0];
 
             const provider = new ethers.providers.Web3Provider(providerOrigin, "any");
@@ -73,22 +77,22 @@
                 }
             });
 
-            status.innerText = "A processar Mint...";
+            status.innerText = "A processar Mint TIP-20...";
             const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-            // Uso de gás manual alto devido ao saldo abundante de USD
-            // Isto evita o erro de "cannot estimate gas" da rede de teste
+            // Gás manual alto para usar o seu saldo de USD
+            // Contorna o erro "cannot estimate gas"
             const tx = await contract.mint(user, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1000000 
+                gasLimit: 800000 
             });
 
             status.innerHTML = "<b>Transação enviada!</b>";
             await tx.wait();
-            status.innerHTML = "<b style='color:#22c55e'>MINT REALIZADO!</b>";
+            status.innerHTML = "<span class='success'>MINT CONCLUÍDO!</span>";
 
         } catch (err) {
             console.error(err);
-            status.innerHTML = `<span class="error">Erro: ${err.message.substring(0, 45)}...</span>`;
+            status.innerHTML = `<span class="error">Erro: ${err.message.substring(0, 40)}...</span>`;
         } finally {
             btn.disabled = false;
         }
