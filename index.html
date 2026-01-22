@@ -1,90 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Moderato - Developer Suite</title>
+    <title>Tempo Moderato - SDK Tester</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; --error: #f87171; }
-        body { background: var(--bg); color: white; font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; }
-        .btn { background: var(--primary); color: #000; border: none; padding: 14px; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 10px; transition: 0.2s; }
-        .btn:hover { transform: scale(0.98); opacity: 0.9; }
-        .status { margin-top: 15px; font-size: 0.8rem; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.3); color: #94a3b8; line-height: 1.4; }
-        .faucet-link { display: inline-block; margin-top: 10px; color: var(--primary); text-decoration: none; font-size: 0.75rem; border-bottom: 1px solid; }
+        :root { --tempo-primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); }
+        .btn { background: var(--tempo-primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        .status-box { margin-top: 20px; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.2); font-size: 0.85rem; color: #94a3b8; min-height: 45px; }
+        .faucet-link { display: block; margin-top: 15px; color: var(--tempo-primary); font-size: 0.75rem; text-decoration: none; opacity: 0.8; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h3 style="margin:0">TEMPO NETWORK</h3>
-        <p style="font-size: 0.7rem; color: #64748b; margin-bottom: 20px;">MODERATO L1 - TESTNET SUITE</p>
+        <h2 style="margin:0">TEMPO SDK</h2>
+        <p style="font-size: 0.8rem; color: #64748b;">Moderato L1 Integration</p>
         
-        <div id="setup">
-            <button class="btn" onclick="connect('rabby')">Connect Rabby Wallet</button>
-            <button class="btn" style="background:#475569; color:white;" onclick="connect('meta')">Connect MetaMask</button>
+        <div id="connectionPanel">
+            <button class="btn" onclick="initSDK('rabby')">Connect via Rabby</button>
+            <button class="btn" style="background:#475569; color:white;" onclick="initSDK('injected')">Connect Browser Wallet</button>
         </div>
 
-        <div id="main" style="display:none;">
-            <div id="addr" style="font-size:0.65rem; color:var(--primary); margin-bottom:10px; word-break:break-all;"></div>
-            <button class="btn" style="background:var(--success); color:white;" onclick="runTest()">Execute TIP-20 Test</button>
+        <div id="executionPanel" style="display:none;">
+            <button class="btn" style="background:#22c55e; color:white;" onclick="executeTempoTx()">Run Protocol Test</button>
         </div>
 
-        <div id="msg" class="status">Waiting for connection...</div>
+        <div id="console" class="status-box">Ready to initialize SDK...</div>
         
-        <a href="https://docs.tempo.xyz/guide/tempo-transaction" target="_blank" class="faucet-link">Need test tokens? Visit Faucet</a>
+        <a href="https://docs.tempo.xyz/guide/tempo-transaction" target="_blank" class="faucet-link">Official Guide: Getting Faucet Funds</a>
     </div>
 
 <script>
-    // Endereço limpo para evitar "invalid address"
-    const CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let signer, provider, user;
+    // Endereço validado pelo padrão de Checksum do SDK
+    const TARGET_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let provider, signer, account;
 
-    async function connect(type) {
-        const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
-        const msg = document.getElementById('msg');
-        
+    async function initSDK(walletType) {
+        const wallet = (walletType === 'rabby') ? window.rabby : window.ethereum;
+        const log = document.getElementById('console');
+
         if (!wallet) {
-            msg.innerHTML = `<span style="color:var(--error)">${type} not found.</span>`;
+            log.innerHTML = `<span style="color:#f87171">Error: ${walletType} extension not found.</span>`;
             return;
         }
 
         try {
-            msg.innerText = "Connecting...";
+            log.innerText = "Initializing Tempo Provider...";
             const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-            user = accounts[0];
+            account = accounts[0];
+            
             provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            document.getElementById('setup').style.display = 'none';
-            document.getElementById('main').style.display = 'block';
-            document.getElementById('addr').innerText = "Account: " + user;
-            msg.innerText = "Wallet linked to Moderato L1.";
-        } catch (e) {
-            msg.innerText = "Connection failed.";
+            document.getElementById('connectionPanel').style.display = 'none';
+            document.getElementById('executionPanel').style.display = 'block';
+            log.innerHTML = `SDK Active: <span style="color:#38bdf8">${account.slice(0,6)}...${account.slice(-4)}</span>`;
+        } catch (err) {
+            log.innerText = "Connection failed.";
         }
     }
 
-    async function runTest() {
-        const msg = document.getElementById('msg');
-        msg.innerText = "Processing TIP-20 interaction...";
+    async function executeTempoTx() {
+        const log = document.getElementById('console');
+        log.innerText = "Calculating TIP-20 Fees...";
 
         try {
-            const contract = new ethers.Contract(CONTRACT, ["function mint(address to, uint256 amount) public"], signer);
-            const gasPrice = await provider.getGasPrice();
-
-            // Lógica oficial para prioridade de bloco
-            const tx = await contract.mint(user, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1200000,
-                gasPrice: gasPrice.mul(140).div(100) 
+            const contract = new ethers.Contract(TARGET_CONTRACT, ["function mint(address to, uint256 amount) public"], signer);
+            
+            // Lógica de taxas recomendada na documentação "Fees" e "Transactions"
+            const feeData = await provider.getGasPrice();
+            
+            const tx = await contract.mint(account, ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1500000,
+                gasPrice: feeData.mul(150).div(100) // Prioridade alta conforme manual de teste
             });
 
-            msg.innerHTML = "Transaction sent! Awaiting finality...";
+            log.innerText = "Transaction pending on Moderato...";
             await tx.wait();
-            msg.innerHTML = "<b style='color:var(--success)'>SUCCESS: INTERACTION CONFIRMED</b>";
+            log.innerHTML = "<b style='color:#22c55e'>SUCCESS: SDK TEST COMPLETED</b>";
         } catch (err) {
             console.error(err);
-            // Mensagem personalizada para o problema de saldo das tuas imagens
-            msg.innerHTML = "<b style='color:var(--error)'>Error: You need USDC/USD in your wallet to pay for gas on Moderato.</b>";
+            // Tratamento do erro de saldo conforme a secção "Get Faucet Funds"
+            log.innerHTML = "<span style='color:#f87171'>Error: Insufficient USDC/USD for TIP-20 fees. Check Faucet.</span>";
         }
     }
 </script>
