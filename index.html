@@ -2,106 +2,68 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Official Mint</title>
+    <title>Tempo Moderato - Network Tester</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        .user-info { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 0.8rem; border-radius: 12px; font-size: 0.7rem; margin-bottom: 1rem; display: none; border: 1px solid rgba(56, 189, 248, 0.2); }
-        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); }
+        .badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 0.8rem; border-radius: 12px; font-size: 0.7rem; margin-bottom: 1.5rem; display: none; border: 1px solid rgba(56, 189, 248, 0.2); }
+        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; }
         #status { margin-top: 1.5rem; font-size: 0.8rem; color: #94a3b8; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin: 0 0 1rem 0;">TEMPO BUILDER</h2>
-        <div id="userBadge" class="user-info"></div>
-        <button id="connectBtn" class="btn">CONECTAR CARTEIRA</button>
-        <button id="mintBtn" class="btn" style="display:none; background: var(--success); color: white;">EFETUAR MINT (TIP-20)</button>
-        <div id="status">Ligue a Rabby na rede Moderato.</div>
+        <h2 style="margin: 0 0 1rem 0;">TEMPO NETWORK TESTER</h2>
+        <div id="userBadge" class="badge"></div>
+        <button id="connectBtn" class="btn">CONNECT TO MODERATO L1</button>
+        <button id="testBtn" class="btn" style="display:none; background: var(--success); color: white;">RUN CONTRACT TEST (TIP-20)</button>
+        <div id="status">Ready for protocol interaction.</div>
     </div>
 
 <script>
     const CONTRACT_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CHAIN_ID_HEX = "0xa5bf"; // 42431 em decimal
+    const CHAIN_ID = "0xa5bf";
 
     let provider, signer, userAddress;
 
-    async function checkNetwork(wallet) {
-        const currentChainId = await wallet.request({ method: 'eth_chainId' });
-        if (currentChainId !== CHAIN_ID_HEX) {
-            try {
-                await wallet.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: CHAIN_ID_HEX }],
-                });
-            } catch (err) {
-                if (err.code === 4902) {
-                    await wallet.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: CHAIN_ID_HEX,
-                            chainName: "Tempo Moderato",
-                            rpcUrls: ["https://rpc.moderato.tempo.xyz"],
-                            nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-                            blockExplorerUrls: ["https://explorer.moderato.tempo.xyz"]
-                        }]
-                    });
-                }
-            }
-        }
-    }
-
     async function connect() {
         const wallet = window.rabby || window.ethereum;
-        if (!wallet) return alert("Instale a Rabby Wallet!");
+        if (!wallet) return alert("Rabby Wallet not found.");
 
         try {
-            await checkNetwork(wallet);
             const accounts = await wallet.request({ method: 'eth_requestAccounts' });
             userAddress = accounts[0];
             
             provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            document.getElementById('userBadge').innerText = "CONECTADO: " + userAddress;
+            document.getElementById('userBadge').innerText = "DEVELOPER: " + userAddress;
             document.getElementById('userBadge').style.display = "block";
             document.getElementById('connectBtn').style.display = "none";
-            document.getElementById('mintBtn').style.display = "block";
-            document.getElementById('status').innerText = "Rede Moderato Ativa.";
+            document.getElementById('testBtn').style.display = "block";
+            document.getElementById('status').innerText = "Connected to Moderato L1 RPC.";
         } catch (e) {
-            document.getElementById('status').innerText = "Conexão cancelada.";
+            document.getElementById('status').innerText = "Connection failed.";
         }
     }
 
-    async function mint() {
+    async function runTest() {
         const status = document.getElementById('status');
-        status.innerText = "A processar transação TIP-20...";
+        status.innerText = "Executing TIP-20 Transaction Flow...";
         
         try {
             const contract = new ethers.Contract(CONTRACT_ADDR, ["function mint(address to, uint256 amount) public"], signer);
             
-            // Lógica de Taxas TIP-20 (Importante para o Airdrop)
+            // Lógica técnica de Gas Price para rede de alta performance
             const gasPrice = await provider.getGasPrice();
             
+            // Priorização de transação para testes de stress da rede
             const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
                 gasLimit: 1200000,
-                gasPrice: gasPrice.mul(130).div(100) // 30% extra para prioridade total
+                gasPrice: gasPrice.mul(135).div(100) 
             });
 
-            status.innerHTML = "Enviada! Verificando bloco...";
-            await tx.wait();
-            status.innerHTML = "<b style='color:#22c55e'>SUCESSO! MINT REGISTADO.</b>";
-        } catch (err) {
-            console.error(err);
-            // Erro de saldo nas imagens
-            status.innerHTML = "<span style='color:#f87171'>Erro: Saldo insuficiente de USDC para taxas TIP-20.</span>";
-        }
-    }
-
-    document.getElementById('connectBtn').onclick = connect;
-    document.getElementById('mintBtn').onclick = mint;
-</script>
-</body>
-</html>
+            status.innerHTML = "Transaction broadcasted. Awaiting finality...";
+            await tx.wait(); // Finalidade sub-segundo
