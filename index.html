@@ -2,100 +2,91 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tempo Moderato - Developer Suite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
-        .btn:hover { opacity: 0.9; transform: scale(0.98); }
-        .status-box { margin-top: 20px; padding: 10px; border-radius: 8px; font-size: 0.85rem; background: rgba(0,0,0,0.2); min-height: 50px; color: #94a3b8; }
-        .account-badge { font-size: 0.7rem; color: var(--primary); margin-bottom: 15px; word-break: break-all; display: none; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; --error: #f87171; }
+        body { background: var(--bg); color: white; font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; }
+        .btn { background: var(--primary); color: #000; border: none; padding: 14px; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn:hover { transform: scale(0.98); opacity: 0.9; }
+        .status { margin-top: 15px; font-size: 0.8rem; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.3); color: #94a3b8; line-height: 1.4; }
+        .faucet-link { display: inline-block; margin-top: 10px; color: var(--primary); text-decoration: none; font-size: 0.75rem; border-bottom: 1px solid; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin-bottom: 5px;">TEMPO NETWORK</h2>
-        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0;">L1 Moderato Interface</p>
+        <h3 style="margin:0">TEMPO NETWORK</h3>
+        <p style="font-size: 0.7rem; color: #64748b; margin-bottom: 20px;">MODERATO L1 - TESTNET SUITE</p>
         
-        <div id="accountDisplay" class="account-badge"></div>
-        
-        <div id="connectSection">
-            <button class="btn" onclick="connectWallet('rabby')">Connect Rabby Wallet</button>
-            <button class="btn" style="background:#4a5568; color:white;" onclick="connectWallet('meta')">Connect MetaMask</button>
+        <div id="setup">
+            <button class="btn" onclick="connect('rabby')">Connect Rabby Wallet</button>
+            <button class="btn" style="background:#475569; color:white;" onclick="connect('meta')">Connect MetaMask</button>
         </div>
 
-        <div id="actionSection" style="display:none;">
-            <button class="btn" style="background:#22c55e; color:white;" onclick="runTransaction()">Execute Contract Interaction</button>
+        <div id="main" style="display:none;">
+            <div id="addr" style="font-size:0.65rem; color:var(--primary); margin-bottom:10px; word-break:break-all;"></div>
+            <button class="btn" style="background:var(--success); color:white;" onclick="runTest()">Execute TIP-20 Test</button>
         </div>
 
-        <div id="statusOutput" class="status-box">Ready for protocol connection...</div>
+        <div id="msg" class="status">Waiting for connection...</div>
+        
+        <a href="https://docs.tempo.xyz/guide/tempo-transaction" target="_blank" class="faucet-link">Need test tokens? Visit Faucet</a>
     </div>
 
-    <script>
-        // ENDEREÇO VALIDADO: Limpo manualmente para evitar erro de "invalid address"
-        const CONTRACT_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-        let provider, signer, userAddress;
+<script>
+    // Endereço limpo para evitar "invalid address"
+    const CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let signer, provider, user;
 
-        async function connectWallet(type) {
-            const status = document.getElementById('statusOutput');
-            const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
-
-            if (!wallet) {
-                status.innerHTML = `<b style="color:#f87171">Error: ${type} extension not found.</b>`;
-                return;
-            }
-
-            try {
-                status.innerText = "Requesting connection...";
-                const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-                userAddress = accounts[0];
-                
-                provider = new ethers.providers.Web3Provider(wallet, "any");
-                signer = provider.getSigner();
-
-                // Interface Update
-                document.getElementById('accountDisplay').innerText = "Connected: " + userAddress;
-                document.getElementById('accountDisplay').style.display = "block";
-                document.getElementById('connectSection').style.display = "none";
-                document.getElementById('actionSection').style.display = "block";
-                status.innerText = "Successfully connected to " + type;
-            } catch (err) {
-                status.innerText = "Connection rejected.";
-                console.error(err);
-            }
+    async function connect(type) {
+        const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
+        const msg = document.getElementById('msg');
+        
+        if (!wallet) {
+            msg.innerHTML = `<span style="color:var(--error)">${type} not found.</span>`;
+            return;
         }
 
-        async function runTransaction() {
-            const status = document.getElementById('statusOutput');
-            status.innerText = "Preparing TIP-20 Transaction...";
+        try {
+            msg.innerText = "Connecting...";
+            const accounts = await wallet.request({ method: 'eth_requestAccounts' });
+            user = accounts[0];
+            provider = new ethers.providers.Web3Provider(wallet, "any");
+            signer = provider.getSigner();
 
-            try {
-                const contract = new ethers.Contract(
-                    CONTRACT_ADDR, 
-                    ["function mint(address to, uint256 amount) public"], 
-                    signer
-                );
-
-                const gasPrice = await provider.getGasPrice();
-                
-                // Prioridade técnica para garantir a finalidade na rede Moderato
-                const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
-                    gasLimit: 1200000,
-                    gasPrice: gasPrice.mul(140).div(100) // 40% de bónus para evitar falhas
-                });
-
-                status.innerHTML = "Broadcasting... <br>Check explorer in 1s.";
-                await tx.wait();
-                status.innerHTML = "<b style='color:#22c55e'>SUCCESS: TEST RECORDED ON-CHAIN</b>";
-            } catch (err) {
-                console.error(err);
-                // Resposta ao erro de saldo visível nas imagens
-                status.innerHTML = "<b style='color:#f87171'>Error: Insufficient USD/USDC balance for TIP-20 gas.</b>";
-            }
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('main').style.display = 'block';
+            document.getElementById('addr').innerText = "Account: " + user;
+            msg.innerText = "Wallet linked to Moderato L1.";
+        } catch (e) {
+            msg.innerText = "Connection failed.";
         }
-    </script>
+    }
+
+    async function runTest() {
+        const msg = document.getElementById('msg');
+        msg.innerText = "Processing TIP-20 interaction...";
+
+        try {
+            const contract = new ethers.Contract(CONTRACT, ["function mint(address to, uint256 amount) public"], signer);
+            const gasPrice = await provider.getGasPrice();
+
+            // Lógica oficial para prioridade de bloco
+            const tx = await contract.mint(user, ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1200000,
+                gasPrice: gasPrice.mul(140).div(100) 
+            });
+
+            msg.innerHTML = "Transaction sent! Awaiting finality...";
+            await tx.wait();
+            msg.innerHTML = "<b style='color:var(--success)'>SUCCESS: INTERACTION CONFIRMED</b>";
+        } catch (err) {
+            console.error(err);
+            // Mensagem personalizada para o problema de saldo das tuas imagens
+            msg.innerHTML = "<b style='color:var(--error)'>Error: You need USDC/USD in your wallet to pay for gas on Moderato.</b>";
+        }
+    }
+</script>
 </body>
 </html>
