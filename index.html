@@ -1,89 +1,67 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Moderato - SDK Tester</title>
+    <title>Tempo Moderato - Final Test</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --tempo-primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); }
-        .btn { background: var(--tempo-primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
-        .status-box { margin-top: 20px; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.2); font-size: 0.85rem; color: #94a3b8; min-height: 45px; }
-        .faucet-link { display: block; margin-top: 15px; color: var(--tempo-primary); font-size: 0.75rem; text-decoration: none; opacity: 0.8; }
+        :root { --tempo-blue: #38bdf8; --bg: #0f172a; --card: #1e293b; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; }
+        .btn { background: var(--tempo-blue); color: #000; border: none; padding: 14px; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        .status { margin-top: 15px; font-size: 0.8rem; color: #94a3b8; min-height: 40px; }
+        .faucet-link { display: block; margin-top: 15px; color: var(--tempo-blue); font-size: 0.7rem; text-decoration: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin:0">TEMPO SDK</h2>
-        <p style="font-size: 0.8rem; color: #64748b;">Moderato L1 Integration</p>
-        
-        <div id="connectionPanel">
-            <button class="btn" onclick="initSDK('rabby')">Connect via Rabby</button>
-            <button class="btn" style="background:#475569; color:white;" onclick="initSDK('injected')">Connect Browser Wallet</button>
+        <h3>TEMPO NETWORK</h3>
+        <div id="setup">
+            <button class="btn" onclick="connect()">Connect Wallet</button>
         </div>
-
-        <div id="executionPanel" style="display:none;">
-            <button class="btn" style="background:#22c55e; color:white;" onclick="executeTempoTx()">Run Protocol Test</button>
+        <div id="action" style="display:none;">
+            <button class="btn" style="background:#22c55e; color:white;" onclick="runTx()">Run Protocol Test</button>
         </div>
-
-        <div id="console" class="status-box">Ready to initialize SDK...</div>
-        
-        <a href="https://docs.tempo.xyz/guide/tempo-transaction" target="_blank" class="faucet-link">Official Guide: Getting Faucet Funds</a>
+        <div id="msg" class="status">Waiting...</div>
+        <a href="https://docs.tempo.xyz/sdk" target="_blank" class="faucet-link">Need gas? Check SDK Faucet info</a>
     </div>
 
 <script>
-    // Endereço validado pelo padrão de Checksum do SDK
-    const TARGET_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let provider, signer, account;
+    // FIX: Endereço limpo sem aspas extras ou espaços
+    const CONTRACT_RAW = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let signer, user;
 
-    async function initSDK(walletType) {
-        const wallet = (walletType === 'rabby') ? window.rabby : window.ethereum;
-        const log = document.getElementById('console');
-
-        if (!wallet) {
-            log.innerHTML = `<span style="color:#f87171">Error: ${walletType} extension not found.</span>`;
-            return;
-        }
-
-        try {
-            log.innerText = "Initializing Tempo Provider...";
-            const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-            account = accounts[0];
-            
-            provider = new ethers.providers.Web3Provider(wallet, "any");
-            signer = provider.getSigner();
-
-            document.getElementById('connectionPanel').style.display = 'none';
-            document.getElementById('executionPanel').style.display = 'block';
-            log.innerHTML = `SDK Active: <span style="color:#38bdf8">${account.slice(0,6)}...${account.slice(-4)}</span>`;
-        } catch (err) {
-            log.innerText = "Connection failed.";
-        }
+    async function connect() {
+        if (!window.ethereum && !window.rabby) return alert("Wallet not found");
+        const provider = new ethers.providers.Web3Provider(window.rabby || window.ethereum);
+        const accounts = await provider.send("eth_requestAccounts", []);
+        user = accounts[0];
+        signer = provider.getSigner();
+        
+        document.getElementById('setup').style.display = 'none';
+        document.getElementById('action').style.display = 'block';
+        document.getElementById('msg').innerText = "Connected: " + user.slice(0,6);
     }
 
-    async function executeTempoTx() {
-        const log = document.getElementById('console');
-        log.innerText = "Calculating TIP-20 Fees...";
-
+    async function runTx() {
+        const msg = document.getElementById('msg');
+        msg.innerText = "Checking TIP-20 balance...";
         try {
-            const contract = new ethers.Contract(TARGET_CONTRACT, ["function mint(address to, uint256 amount) public"], signer);
+            // Validação explícita do endereço para evitar erro de "argument address"
+            const cleanAddr = ethers.utils.getAddress(CONTRACT_RAW);
+            const contract = new ethers.Contract(cleanAddr, ["function mint(address to, uint256 amount) public"], signer);
             
-            // Lógica de taxas recomendada na documentação "Fees" e "Transactions"
-            const feeData = await provider.getGasPrice();
-            
-            const tx = await contract.mint(account, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1500000,
-                gasPrice: feeData.mul(150).div(100) // Prioridade alta conforme manual de teste
+            // Lógica SDK: Gás priorizado para rede Moderato
+            const tx = await contract.mint(user, ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1200000
             });
-
-            log.innerText = "Transaction pending on Moderato...";
+            msg.innerText = "Transaction pending...";
             await tx.wait();
-            log.innerHTML = "<b style='color:#22c55e'>SUCCESS: SDK TEST COMPLETED</b>";
+            msg.innerHTML = "<b style='color:#22c55e'>SUCCESS!</b>";
         } catch (err) {
             console.error(err);
-            // Tratamento do erro de saldo conforme a secção "Get Faucet Funds"
-            log.innerHTML = "<span style='color:#f87171'>Error: Insufficient USDC/USD for TIP-20 fees. Check Faucet.</span>";
+            // Resposta ao erro de saldo das suas imagens
+            msg.innerHTML = "<span style='color:#f87171'>Error: No USD/USDC balance for gas fees.</span>";
         }
     }
 </script>
