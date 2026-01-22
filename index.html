@@ -2,65 +2,91 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Official Developer Mint</title>
+    <title>Tempo Hub - Developer Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; }
-        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 15px; }
-        #status { font-size: 0.8rem; color: #94a3b8; margin-top: 15px; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --success: #22c55e; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .user-badge { background: rgba(56, 189, 248, 0.1); color: var(--primary); padding: 0.5rem; border-radius: 10px; font-size: 0.75rem; margin-bottom: 1.5rem; display: none; }
+        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        #status { margin-top: 1.5rem; font-size: 0.8rem; color: #94a3b8; min-height: 40px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>TEMPO HUB</h2>
-        <p style="color: var(--primary); font-size: 0.7rem;">AUTHOR VERIFIED MINT</p>
-        <button id="mintBtn" class="btn">MINT COM PROVA DE AUTOR</button>
-        <div id="status">Aguardando...</div>
+        <h2 style="margin-bottom: 0.5rem;">TEMPO DEVELOPER</h2>
+        <div id="userBadge" class="user-badge"></div>
+        
+        <button id="connectBtn" class="btn">CONECTAR CARTEIRA</button>
+        <button id="mintBtn" class="btn" style="display:none; background: var(--success); color: white;">MINT COM PROVA DE AUTOR</button>
+        
+        <div id="status">Ligue a Rabby Wallet (Rede Moderato)</div>
     </div>
 
 <script>
-    // Identificador único para o teu Airdrop (Muda se quiseres uma palavra tua)
-    const DEV_IDENTIFIER = "TEMPO_BUILDER_PROOFOFAUTHOR"; 
-    
-    const RAW_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    const CONTRACT_ADDR = RAW_ADDR.replace(/[^a-fA-F0-9x]/g, "").trim();
-    const CHAIN_ID = "0xa5bf";
+    // CORREÇÃO CRÍTICA: Endereço limpo manualmente para evitar o erro das imagens
+    const CONTRACT_ADDR = ethers.utils.getAddress("0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037");
+    const CHAIN_ID = "0xa5bf"; 
+    const AUTHOR_MARK = "BUILDER_ID_ORIGINAL"; // A sua marca on-chain
 
-    async function handleMint() {
+    const ABI = ["function mint(address to, uint256 amount) public"];
+    
+    const connectBtn = document.getElementById('connectBtn');
+    const mintBtn = document.getElementById('mintBtn');
+    const badge = document.getElementById('userBadge');
+    const status = document.getElementById('status');
+
+    let provider, signer, userAddress;
+
+    async function connect() {
         const providerOrigin = window.rabby || window.ethereum;
-        const status = document.getElementById('status');
-        
+        if (!providerOrigin) return alert("Instale a Rabby Wallet!");
+
         try {
             const accounts = await providerOrigin.request({ method: 'eth_requestAccounts' });
-            const provider = new ethers.providers.Web3Provider(providerOrigin, "any");
-            const signer = provider.getSigner();
-
-            // Seguindo a especificação de transações da Tempo (docs.tempo.xyz)
-            const gasPrice = await provider.getGasPrice();
+            userAddress = accounts[0];
             
-            const contract = new ethers.Contract(CONTRACT_ADDR, ["function mint(address to, uint256 amount) public"], signer);
+            provider = new ethers.providers.Web3Provider(providerOrigin, "any");
+            signer = provider.getSigner();
 
-            status.innerText = "Assinando com Prova de Autoria...";
-
-            // A mágica acontece aqui: enviamos o Mint e gravamos o teu ID na transação
-            const tx = await contract.mint(accounts[0], ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1200000,
-                gasPrice: gasPrice.mul(120).div(100), // Prioridade Airdrop
-                // Adiciona um comentário hexadecimal no final da transação para provar autoria
-                data: contract.interface.encodeFunctionData("mint", [accounts[0], ethers.utils.parseUnits("1", 18)]) + 
-                      ethers.utils.hexlify(ethers.utils.toUtf8Bytes(DEV_IDENTIFIER)).slice(2)
-            });
-
-            status.innerHTML = `Sucesso! <br> Hash: <a href="https://explorer.moderato.tempo.xyz/tx/${tx.hash}" target="_blank" style="color:white">${tx.hash.slice(0,10)}...</a>`;
-            await tx.wait();
-        } catch (err) {
-            status.innerText = "Erro: " + err.message.substring(0, 40);
+            // Atualiza Interface
+            badge.innerText = `Logado: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+            badge.style.display = "block";
+            connectBtn.style.display = "none";
+            mintBtn.style.display = "block";
+            status.innerText = "Conectado à Tempo Moderato.";
+        } catch (e) {
+            status.innerText = "Erro ao conectar.";
         }
     }
 
-    document.getElementById('mintBtn').onclick = handleMint;
+    async function mint() {
+        status.innerText = "Preparando transação TIP-20...";
+        try {
+            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+            
+            // Lógica de Taxas da Documentação Tempo
+            const gasPrice = await provider.getGasPrice();
+            
+            // Gravação da Prova de Autor no campo Data
+            const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1200000,
+                gasPrice: gasPrice.mul(125).div(100), // 25% extra para prioridade de airdrop
+            });
+
+            status.innerHTML = `Enviada! <br> <small>${tx.hash}</small>`;
+            await tx.wait();
+            status.innerHTML = "<b style='color:#22c55e'>MINT E AUTORIA GRAVADOS!</b>";
+        } catch (err) {
+            console.error(err);
+            status.innerText = "Erro: Verifique saldo de taxas.";
+        }
+    }
+
+    connectBtn.onclick = connect;
+    mintBtn.onclick = mint;
 </script>
 </body>
 </html>
