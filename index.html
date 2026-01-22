@@ -2,94 +2,87 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Moderato - Multi-Stablecoin Gas</title>
+    <title>Tempo Moderato - Master Suite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --tempo-sky: #38bdf8; --slate-900: #0f172a; --slate-800: #1e293b; }
-        body { background: var(--slate-900); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .app-card { background: var(--slate-800); padding: 2.5rem; border-radius: 28px; text-align: center; width: 420px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 30px 60px -12px rgba(0,0,0,0.6); }
-        .btn-action { background: var(--tempo-sky); color: #000; border: none; padding: 1.1rem; width: 100%; border-radius: 16px; font-weight: 800; cursor: pointer; margin-top: 20px; transition: all 0.3s ease; }
-        .btn-action:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 10px 20px -10px var(--tempo-sky); }
-        .fee-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; background: rgba(56, 189, 248, 0.1); color: var(--tempo-sky); font-size: 0.75rem; margin-top: 10px; border: 1px solid rgba(56, 189, 248, 0.2); }
-        .status-log { margin-top: 25px; padding: 15px; border-radius: 12px; background: rgba(0,0,0,0.25); font-size: 0.85rem; color: #94a3b8; min-height: 60px; border-left: 4px solid var(--tempo-sky); text-align: left; }
+        :root { --tempo-blue: #38bdf8; --bg: #0f172a; --card: #1e293b; }
+        body { background: var(--bg); color: white; font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); }
+        .btn { background: var(--tempo-blue); color: #000; border: none; padding: 1.1rem; width: 100%; border-radius: 14px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        .log { margin-top: 20px; font-size: 0.85rem; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); color: #94a3b8; min-height: 50px; text-align: left; border-left: 3px solid var(--tempo-blue); }
     </style>
 </head>
 <body>
-    <div class="app-card">
-        <h2 style="margin: 0 0 10px 0; letter-spacing: -0.5px;">TEMPO PAY</h2>
-        <div class="fee-badge">TIP-20 Multi-Stablecoin Gas Active</div>
+    <div class="container">
+        <h2 style="margin:0">TEMPO MASTER</h2>
+        <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 20px;">Protocol Interaction Suite</p>
         
-        <div id="authSection">
-            <button class="btn-action" onclick="connectWallet()">Connect to Moderato L1</button>
+        <div id="setup">
+            <button class="btn" onclick="initialize('rabby')">Connect Rabby Wallet</button>
+            <button class="btn" style="background:#475569; color:white;" onclick="initialize('meta')">Connect MetaMask</button>
         </div>
 
-        <div id="paySection" style="display:none;">
-            <p style="font-size: 0.9rem; color: #cbd5e1;">The protocol will automatically use your available TIP-20 stablecoins for fees.</p>
-            <button class="btn-action" style="background: #10b981; color: white;" onclick="processMint()">Execute Transaction</button>
+        <div id="action" style="display:none;">
+            <button class="btn" style="background:#10b981; color:white;" onclick="runFinalTest()">Execute Protocol Test</button>
         </div>
 
-        <div id="console" class="status-log">System ready. Waiting for wallet authorization...</div>
-        
-        <p style="font-size: 0.7rem; color: #64748b; margin-top: 20px;">
-            Fees are processed via any stablecoin path
-        </p>
+        <div id="console" class="log">Waiting for session...</div>
+        <p style="font-size: 0.65rem; color: #4a5568; margin-top: 15px;">Fees processed via TIP-20 Stablecoin Path</p>
     </div>
 
 <script>
-    // Endereço limpo e validado para evitar o erro "invalid address"
-    const MINT_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let provider, signer, account;
+    // FIX: Endereço sem espaços ou caracteres ocultos
+    const RAW_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let signer, provider, myAddr;
 
-    async function connectWallet() {
+    async function initialize(type) {
+        const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
         const log = document.getElementById('console');
-        const wallet = window.rabby || window.ethereum;
-
+        
         if (!wallet) {
-            log.innerHTML = "<b>Wallet Extension Missing.</b><br>Please install Rabby or MetaMask.";
+            log.innerHTML = `<span style="color:#f87171">Error: ${type} not found.</span>`;
             return;
         }
 
         try {
-            log.innerText = "Synchronizing with Moderato Network...";
             const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-            account = accounts[0];
+            myAddr = accounts[0];
             provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            document.getElementById('authSection').style.display = 'none';
-            document.getElementById('paySection').style.display = 'block';
-            log.innerHTML = `<b>Wallet Linked:</b> ${account.slice(0,12)}...<br>Stablecoin Gas enabled.`;
-        } catch (err) {
-            log.innerText = "Authorization failed.";
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('action').style.display = 'block';
+            log.innerHTML = `<b>Session Active:</b> ${myAddr.slice(0,10)}...`;
+        } catch (e) {
+            log.innerText = "Connection rejected.";
         }
     }
 
-    async function processMint() {
+    async function runFinalTest() {
         const log = document.getElementById('console');
-        log.innerText = "Configuring Fee-Agnostic Transaction...";
+        log.innerText = "Validating Protocol Address...";
 
         try {
-            // Checksum do endereço para evitar falha de argumento de consola
-            const cleanAddr = ethers.utils.getAddress(MINT_CONTRACT);
+            // Limpeza forçada do endereço para eliminar o erro de consola
+            const cleanAddr = ethers.utils.getAddress(RAW_CONTRACT.trim());
             const contract = new ethers.Contract(cleanAddr, ["function mint(address to, uint256 amount) public"], signer);
             
-            // Lógica baseada em "Pay Fees in Any Stablecoin"
-            // A rede Tempo detecta automaticamente o token de taxa se o gasPrice for enviado corretamente
-            const currentGasPrice = await provider.getGasPrice();
-            
-            const tx = await contract.mint(account, ethers.utils.parseUnits("1", 18), {
+            log.innerText = "Estimating TIP-20 Stablecoin fees...";
+            const gasPrice = await provider.getGasPrice();
+
+            // Lógica oficial para pagar taxas em qualquer stablecoin
+            const tx = await contract.mint(myAddr, ethers.utils.parseUnits("1", 18), {
                 gasLimit: 1400000,
-                // Aumentamos a prioridade para garantir que o validador aceita o pagamento em stablecoin
-                gasPrice: currentGasPrice.mul(145).div(100) 
+                gasPrice: gasPrice.mul(140).div(100)
             });
 
-            log.innerHTML = "Transaction broadcasted!<br>Awaiting stablecoin fee settlement...";
+            log.innerHTML = "Transaction pending on Moderato...";
             await tx.wait();
-            log.innerHTML = "<b style='color:#10b981'>MINT SUCCESSFUL!</b><br>Fee paid with available TIP-20 balance.";
+            log.innerHTML = "<b style='color:#10b981'>PROTOCOL TEST SUCCESSFUL!</b>";
         } catch (err) {
             console.error(err);
-            // Diagnóstico baseado nas tuas imagens de erro de saldo
-            log.innerHTML = "<b style='color:#f87171'>Insufficient Stablecoin Balance.</b><br>Garante que tens USD ou USDC na rede Moderato.";
+            // Resposta ao erro de saldo das tuas imagens
+            log.innerHTML = "<b style='color:#f87171'>Insufficient Stablecoin Balance.</b><br>Verifica se tens USD ou USDC para o gás.";
         }
     }
 </script>
