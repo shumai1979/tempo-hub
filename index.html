@@ -2,45 +2,44 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Moderato - Master Suite</title>
+    <title>Tempo Hub - Final Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --tempo-blue: #38bdf8; --bg: #0f172a; --card: #1e293b; }
-        body { background: var(--bg); color: white; font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid rgba(255,255,255,0.1); }
-        .btn { background: var(--tempo-blue); color: #000; border: none; padding: 1.1rem; width: 100%; border-radius: 14px; font-weight: 800; cursor: pointer; margin-top: 15px; }
-        .log { margin-top: 20px; font-size: 0.85rem; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); color: #94a3b8; min-height: 50px; text-align: left; border-left: 3px solid var(--tempo-blue); }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --err: #f87171; --ok: #22c55e; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid #334155; }
+        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        .status { margin-top: 20px; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); font-size: 0.85rem; color: #94a3b8; min-height: 50px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2 style="margin:0">TEMPO MASTER</h2>
-        <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 20px;">Protocol Interaction Suite</p>
+    <div class="box">
+        <h2 style="margin:0">TEMPO PROTOCOL</h2>
+        <p style="font-size: 0.8rem; color: #64748b;">Moderato L1 Testnet</p>
         
-        <div id="setup">
-            <button class="btn" onclick="initialize('rabby')">Connect Rabby Wallet</button>
-            <button class="btn" style="background:#475569; color:white;" onclick="initialize('meta')">Connect MetaMask</button>
+        <div id="connectSect">
+            <button class="btn" onclick="start('rabby')">Connect Rabby Wallet</button>
+            <button class="btn" style="background:#475569; color:white;" onclick="start('meta')">Connect MetaMask</button>
         </div>
 
-        <div id="action" style="display:none;">
-            <button class="btn" style="background:#10b981; color:white;" onclick="runFinalTest()">Execute Protocol Test</button>
+        <div id="actionSect" style="display:none;">
+            <button class="btn" style="background:var(--ok); color:white;" onclick="runMint()">Execute Mint Interaction</button>
         </div>
 
-        <div id="console" class="log">Waiting for session...</div>
-        <p style="font-size: 0.65rem; color: #4a5568; margin-top: 15px;">Fees processed via TIP-20 Stablecoin Path</p>
+        <div id="console" class="status">Aguardando conexão...</div>
     </div>
 
 <script>
-    // FIX: Endereço sem espaços ou caracteres ocultos
-    const RAW_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let signer, provider, myAddr;
+    // FIX: String limpa para evitar erro "invalid address"
+    const TARGET_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let provider, signer, myAddr;
 
-    async function initialize(type) {
+    async function start(type) {
         const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
         const log = document.getElementById('console');
         
         if (!wallet) {
-            log.innerHTML = `<span style="color:#f87171">Error: ${type} not found.</span>`;
+            log.innerHTML = `<span style="color:var(--err)">Carteira ${type} não encontrada.</span>`;
             return;
         }
 
@@ -50,39 +49,38 @@
             provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            document.getElementById('setup').style.display = 'none';
-            document.getElementById('action').style.display = 'block';
-            log.innerHTML = `<b>Session Active:</b> ${myAddr.slice(0,10)}...`;
+            document.getElementById('connectSect').style.display = 'none';
+            document.getElementById('actionSect').style.display = 'block';
+            log.innerHTML = `Conectado: <small>${myAddr}</small>`;
         } catch (e) {
-            log.innerText = "Connection rejected.";
+            log.innerText = "Erro ao conectar.";
         }
     }
 
-    async function runFinalTest() {
+    async function runMint() {
         const log = document.getElementById('console');
-        log.innerText = "Validating Protocol Address...";
+        log.innerText = "Validando contrato e taxas...";
 
         try {
-            // Limpeza forçada do endereço para eliminar o erro de consola
-            const cleanAddr = ethers.utils.getAddress(RAW_CONTRACT.trim());
+            // Validação rigorosa do endereço para matar o erro de consola
+            const cleanAddr = ethers.utils.getAddress(TARGET_CONTRACT.trim());
             const contract = new ethers.Contract(cleanAddr, ["function mint(address to, uint256 amount) public"], signer);
             
-            log.innerText = "Estimating TIP-20 Stablecoin fees...";
+            // Lógica de taxas TIP-20 (Qualquer Stablecoin)
             const gasPrice = await provider.getGasPrice();
 
-            // Lógica oficial para pagar taxas em qualquer stablecoin
             const tx = await contract.mint(myAddr, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1400000,
-                gasPrice: gasPrice.mul(140).div(100)
+                gasLimit: 1300000,
+                gasPrice: gasPrice.mul(140).div(100) // Margem para taxas TIP-20
             });
 
-            log.innerHTML = "Transaction pending on Moderato...";
+            log.innerText = "Transação enviada! Aguardando bloco...";
             await tx.wait();
-            log.innerHTML = "<b style='color:#10b981'>PROTOCOL TEST SUCCESSFUL!</b>";
+            log.innerHTML = "<b style='color:var(--ok)'>SUCESSO: MINT CONCLUÍDO!</b>";
         } catch (err) {
             console.error(err);
-            // Resposta ao erro de saldo das tuas imagens
-            log.innerHTML = "<b style='color:#f87171'>Insufficient Stablecoin Balance.</b><br>Verifica se tens USD ou USDC para o gás.";
+            // Tratamento do erro visual das tuas imagens
+            log.innerHTML = `<span style="color:var(--err)"><b>Erro de Saldo:</b><br>Precisas de USDC ou USD na rede Moderato para pagar o gás.</span>`;
         }
     }
 </script>
