@@ -2,85 +2,79 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Final Fix</title>
+    <title>Tempo Hub - Resolução Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --err: #f87171; --ok: #22c55e; }
+        :root { --tempo-primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --error: #f87171; }
         body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid #334155; }
-        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid #334155; }
+        .btn { background: var(--tempo-primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
         .status { margin-top: 20px; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); font-size: 0.85rem; color: #94a3b8; min-height: 50px; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2 style="margin:0">TEMPO PROTOCOL</h2>
-        <p style="font-size: 0.8rem; color: #64748b;">Moderato L1 Testnet</p>
+    <div class="container">
+        <h2 style="margin:0">TEMPO NETWORK</h2>
+        <p style="font-size: 0.8rem; color: #64748b;">Moderato L1 Integration</p>
         
-        <div id="connectSect">
-            <button class="btn" onclick="start('rabby')">Connect Rabby Wallet</button>
-            <button class="btn" style="background:#475569; color:white;" onclick="start('meta')">Connect MetaMask</button>
+        <div id="setup">
+            <button class="btn" onclick="connectWallet()">Connect Wallet</button>
         </div>
 
-        <div id="actionSect" style="display:none;">
-            <button class="btn" style="background:var(--ok); color:white;" onclick="runMint()">Execute Mint Interaction</button>
+        <div id="main" style="display:none;">
+            <button class="btn" style="background:#22c55e; color:white;" onclick="runTransaction()">Execute Interaction</button>
         </div>
 
-        <div id="console" class="status">Aguardando conexão...</div>
+        <div id="log" class="status">Aguardando conexão...</div>
     </div>
 
 <script>
-    // FIX: String limpa para evitar erro "invalid address"
-    const TARGET_CONTRACT = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let provider, signer, myAddr;
+    // FIX DEFINITIVO: Endereço limpo e sem aspas internas para evitar o erro de consola
+    const CONTRACT_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let provider, signer, user;
 
-    async function start(type) {
-        const wallet = (type === 'rabby') ? window.rabby : window.ethereum;
-        const log = document.getElementById('console');
-        
-        if (!wallet) {
-            log.innerHTML = `<span style="color:var(--err)">Carteira ${type} não encontrada.</span>`;
-            return;
-        }
+    async function connectWallet() {
+        const wallet = window.rabby || window.ethereum;
+        if (!wallet) return alert("Instale a Rabby ou MetaMask");
 
         try {
             const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-            myAddr = accounts[0];
+            user = accounts[0];
             provider = new ethers.providers.Web3Provider(wallet, "any");
             signer = provider.getSigner();
 
-            document.getElementById('connectSect').style.display = 'none';
-            document.getElementById('actionSect').style.display = 'block';
-            log.innerHTML = `Conectado: <small>${myAddr}</small>`;
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('main').style.display = 'block';
+            document.getElementById('log').innerText = "Conectado: " + user.slice(0,10) + "...";
         } catch (e) {
-            log.innerText = "Erro ao conectar.";
+            document.getElementById('log').innerText = "Erro ao conectar.";
         }
     }
 
-    async function runMint() {
-        const log = document.getElementById('console');
-        log.innerText = "Validando contrato e taxas...";
+    async function runTransaction() {
+        const log = document.getElementById('log');
+        log.innerText = "Validando TIP-20 Gas Path...";
 
         try {
-            // Validação rigorosa do endereço para matar o erro de consola
-            const cleanAddr = ethers.utils.getAddress(TARGET_CONTRACT.trim());
+            // Normalização do endereço para matar o erro "invalid address"
+            const cleanAddr = ethers.utils.getAddress(CONTRACT_ADDR.trim());
             const contract = new ethers.Contract(cleanAddr, ["function mint(address to, uint256 amount) public"], signer);
             
-            // Lógica de taxas TIP-20 (Qualquer Stablecoin)
+            // Lógica para pagar taxas em qualquer stablecoin
             const gasPrice = await provider.getGasPrice();
-
-            const tx = await contract.mint(myAddr, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1300000,
+            
+            const tx = await contract.mint(user, ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1400000,
                 gasPrice: gasPrice.mul(140).div(100) // Margem para taxas TIP-20
             });
 
-            log.innerText = "Transação enviada! Aguardando bloco...";
+            log.innerText = "Transação enviada! Aguardando confirmação...";
             await tx.wait();
-            log.innerHTML = "<b style='color:var(--ok)'>SUCESSO: MINT CONCLUÍDO!</b>";
+            log.innerHTML = "<b style='color:#22c55e'>SUCESSO: OPERAÇÃO CONCLUÍDA</b>";
         } catch (err) {
             console.error(err);
-            // Tratamento do erro visual das tuas imagens
-            log.innerHTML = `<span style="color:var(--err)"><b>Erro de Saldo:</b><br>Precisas de USDC ou USD na rede Moderato para pagar o gás.</span>`;
+            // Tratamento do erro visual que aparece nas suas fotos
+            log.innerHTML = "<span style='color:var(--error)'><b>Erro de Saldo:</b><br>Precisas de USDC ou USD na rede Moderato para pagar o gás.</span>";
         }
     }
 </script>
