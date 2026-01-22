@@ -1,69 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Moderato - Final Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tempo Moderato - Developer Suite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --tempo-blue: #38bdf8; --bg: #0f172a; --card: #1e293b; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2rem; border-radius: 20px; text-align: center; width: 380px; border: 1px solid #334155; }
-        .btn { background: var(--tempo-blue); color: #000; border: none; padding: 14px; width: 100%; border-radius: 10px; font-weight: 800; cursor: pointer; margin-top: 15px; }
-        .status { margin-top: 15px; font-size: 0.8rem; color: #94a3b8; min-height: 40px; }
-        .faucet-link { display: block; margin-top: 15px; color: var(--tempo-blue); font-size: 0.7rem; text-decoration: none; }
+        :root { --tempo-primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --error: #f87171; --success: #22c55e; }
+        body { background: var(--bg); color: white; font-family: 'Inter', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 100%; max-width: 400px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .btn { background: var(--tempo-primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.3s; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .status-box { margin-top: 20px; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.2); font-size: 0.85rem; color: #94a3b8; min-height: 50px; line-height: 1.4; }
+        .account-info { font-size: 0.7rem; color: var(--tempo-primary); margin-bottom: 15px; background: rgba(56, 189, 248, 0.1); padding: 8px; border-radius: 8px; display: none; }
+        .faucet-link { display: block; margin-top: 15px; color: var(--tempo-primary); font-size: 0.75rem; text-decoration: none; opacity: 0.8; }
+        .faucet-link:hover { opacity: 1; text-decoration: underline; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h3>TEMPO NETWORK</h3>
-        <div id="setup">
-            <button class="btn" onclick="connect()">Connect Wallet</button>
+        <h2 style="margin: 0 0 5px 0;">TEMPO NETWORK</h2>
+        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0;">L1 Moderato - Protocol Interface</p>
+        
+        <div id="accountDisplay" class="account-info"></div>
+
+        <div id="setupSection">
+            <button class="btn" onclick="connectSDK('rabby')">Connect Rabby Wallet</button>
+            <button class="btn" style="background:#475569; color:white;" onclick="connectSDK('meta')">Connect MetaMask</button>
         </div>
-        <div id="action" style="display:none;">
-            <button class="btn" style="background:#22c55e; color:white;" onclick="runTx()">Run Protocol Test</button>
+
+        <div id="actionSection" style="display:none;">
+            <button class="btn" style="background:var(--success); color:white;" onclick="executeProtocolAction()">Run SDK Mint Test</button>
         </div>
-        <div id="msg" class="status">Waiting...</div>
-        <a href="https://docs.tempo.xyz/sdk" target="_blank" class="faucet-link">Need gas? Check SDK Faucet info</a>
+
+        <div id="status" class="status-box">Initialize session to begin protocol testing.</div>
+        
+        <a href="https://docs.tempo.xyz/sdk" target="_blank" class="faucet-link">Missing USDC for Gas? Access Faucet Here</a>
     </div>
 
 <script>
-    // FIX: Endereço limpo sem aspas extras ou espaços
-    const CONTRACT_RAW = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let signer, user;
-
-    async function connect() {
-        if (!window.ethereum && !window.rabby) return alert("Wallet not found");
-        const provider = new ethers.providers.Web3Provider(window.rabby || window.ethereum);
-        const accounts = await provider.send("eth_requestAccounts", []);
-        user = accounts[0];
-        signer = provider.getSigner();
-        
-        document.getElementById('setup').style.display = 'none';
-        document.getElementById('action').style.display = 'block';
-        document.getElementById('msg').innerText = "Connected: " + user.slice(0,6);
-    }
-
-    async function runTx() {
-        const msg = document.getElementById('msg');
-        msg.innerText = "Checking TIP-20 balance...";
-        try {
-            // Validação explícita do endereço para evitar erro de "argument address"
-            const cleanAddr = ethers.utils.getAddress(CONTRACT_RAW);
-            const contract = new ethers.Contract(cleanAddr, ["function mint(address to, uint256 amount) public"], signer);
-            
-            // Lógica SDK: Gás priorizado para rede Moderato
-            const tx = await contract.mint(user, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1200000
-            });
-            msg.innerText = "Transaction pending...";
-            await tx.wait();
-            msg.innerHTML = "<b style='color:#22c55e'>SUCCESS!</b>";
-        } catch (err) {
-            console.error(err);
-            // Resposta ao erro de saldo das suas imagens
-            msg.innerHTML = "<span style='color:#f87171'>Error: No USD/USDC balance for gas fees.</span>";
-        }
-    }
-</script>
-</body>
-</html>
+    // Endereço limpo conforme padrão do SDK para evitar erro de "invalid address"
+    const CONTRACT_ADDRESS = "0x515f5f64904E22713f15b
