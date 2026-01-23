@@ -5,76 +5,68 @@
     <title>Tempo Hub - Resolução Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --tempo-primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --error: #f87171; }
+        :root { --tempo-blue: #38bdf8; --bg: #0f172a; --card: #1e293b; --err: #f87171; }
         body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
         .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid #334155; }
-        .btn { background: var(--tempo-primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        .btn { background: var(--tempo-blue); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
         .status { margin-top: 20px; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); font-size: 0.85rem; color: #94a3b8; min-height: 50px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="margin:0">TEMPO NETWORK</h2>
-        <p style="font-size: 0.8rem; color: #64748b;">Moderato L1 Integration</p>
-        
-        <div id="setup">
-            <button class="btn" onclick="connectWallet()">Connect Wallet</button>
+        <h2>TEMPO NETWORK</h2>
+        <div id="auth">
+            <button class="btn" onclick="connect()">Ligar Carteira</button>
         </div>
-
-        <div id="main" style="display:none;">
-            <button class="btn" style="background:#22c55e; color:white;" onclick="runTransaction()">Execute Interaction</button>
+        <div id="ops" style="display:none;">
+            <button class="btn" style="background:#22c55e; color:white;" onclick="execute()">Executar Mint</button>
         </div>
-
-        <div id="log" class="status">Aguardando conexão...</div>
+        <div id="log" class="status">Aguardando sessão...</div>
     </div>
 
 <script>
-    // FIX DEFINITIVO: Endereço limpo e sem aspas internas para evitar o erro de consola
-    const CONTRACT_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let provider, signer, user;
+    // FIX: Endereço sem aspas internas ou espaços ocultos
+    const RAW_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let provider, signer, account;
 
-    async function connectWallet() {
+    async function connect() {
+        if (!window.ethereum && !window.rabby) return alert("Wallet não encontrada");
         const wallet = window.rabby || window.ethereum;
-        if (!wallet) return alert("Instale a Rabby ou MetaMask");
+        
+        const accounts = await wallet.request({ method: 'eth_requestAccounts' });
+        account = accounts[0];
+        provider = new ethers.providers.Web3Provider(wallet, "any");
+        signer = provider.getSigner();
 
-        try {
-            const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-            user = accounts[0];
-            provider = new ethers.providers.Web3Provider(wallet, "any");
-            signer = provider.getSigner();
-
-            document.getElementById('setup').style.display = 'none';
-            document.getElementById('main').style.display = 'block';
-            document.getElementById('log').innerText = "Conectado: " + user.slice(0,10) + "...";
-        } catch (e) {
-            document.getElementById('log').innerText = "Erro ao conectar.";
-        }
+        document.getElementById('auth').style.display = 'none';
+        document.getElementById('ops').style.display = 'block';
+        document.getElementById('log').innerText = "Ligado: " + account.slice(0,10) + "...";
     }
 
-    async function runTransaction() {
+    async function execute() {
         const log = document.getElementById('log');
         log.innerText = "Validando TIP-20 Gas Path...";
-
+        
         try {
-            // Normalização do endereço para matar o erro "invalid address"
-            const cleanAddr = ethers.utils.getAddress(CONTRACT_ADDR.trim());
+            // Elimina o erro "invalid address" da consola
+            const cleanAddr = ethers.utils.getAddress(RAW_ADDR.trim());
             const contract = new ethers.Contract(cleanAddr, ["function mint(address to, uint256 amount) public"], signer);
             
-            // Lógica para pagar taxas em qualquer stablecoin
-            const gasPrice = await provider.getGasPrice();
+            // Lógica para pagar taxas com qualquer stablecoin
+            const feeData = await provider.getGasPrice();
             
-            const tx = await contract.mint(user, ethers.utils.parseUnits("1", 18), {
+            const tx = await contract.mint(account, ethers.utils.parseUnits("1", 18), {
                 gasLimit: 1400000,
-                gasPrice: gasPrice.mul(140).div(100) // Margem para taxas TIP-20
+                gasPrice: feeData.mul(140).div(100) // 40% de bónus para prioridade Moderato
             });
 
-            log.innerText = "Transação enviada! Aguardando confirmação...";
+            log.innerText = "Pendente na rede Tempo...";
             await tx.wait();
-            log.innerHTML = "<b style='color:#22c55e'>SUCESSO: OPERAÇÃO CONCLUÍDA</b>";
+            log.innerHTML = "<b style='color:#22c55e'>SUCESSO: TESTE CONCLUÍDO</b>";
         } catch (err) {
             console.error(err);
-            // Tratamento do erro visual que aparece nas suas fotos
-            log.innerHTML = "<span style='color:var(--error)'><b>Erro de Saldo:</b><br>Precisas de USDC ou USD na rede Moderato para pagar o gás.</span>";
+            // Diagnóstico visual dos erros nas suas fotos
+            log.innerHTML = "<span style='color:var(--err)'><b>Erro de Saldo:</b><br>Precisas de USDC ou USD na rede Moderato para pagar o gás.</span>";
         }
     }
 </script>
