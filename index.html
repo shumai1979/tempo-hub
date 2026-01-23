@@ -5,23 +5,26 @@
     <title>TEMPO HUB - Produção</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #050505; color: white; text-align: center; padding: 40px; }
-        .box { border: 2px solid #ff3e3e; padding: 30px; border-radius: 15px; max-width: 400px; margin: auto; background: #111; }
-        .btn { background: #ff3e3e; color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; }
-        #status { margin-top: 20px; color: #888; font-family: monospace; font-size: 12px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #050505; color: white; text-align: center; padding: 40px; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .box { border: 2px solid #ff3e3e; padding: 30px; border-radius: 15px; max-width: 400px; width: 100%; background: #111; box-shadow: 0 0 20px rgba(255, 62, 62, 0.2); }
+        h2 { color: #ff3e3e; margin-top: 0; font-size: 22px; }
+        .btn { background: #ff3e3e; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; transition: 0.3s; }
+        .btn:hover { background: #e63535; }
+        .btn:disabled { background: #444; cursor: not-allowed; }
+        #status { margin-top: 20px; color: #888; font-family: monospace; font-size: 11px; line-height: 1.5; }
     </style>
 </head>
 <body>
     <div class="box">
-        <h2 style="color: #ff3e3e; margin-top: 0;">TEMPO STARTER KIT</h2>
-        <p style="font-size: 14px;">Certifica-te que estás na rede <b>Tempo Moderato</b> na MetaMask.</p>
+        <h2>TEMPO STARTER KIT</h2>
+        <p style="font-size: 13px; color: #ccc;">Rede: <b>Tempo Moderato</b></p>
         <button id="mainBtn" class="btn">CONECTAR CARTEIRA</button>
-        <div id="status">Aguardando...</div>
+        <div id="status">Pronto para iniciar.</div>
     </div>
 
 <script>
-    // Endereço limpo e verificado do teu repositório
-    const CONTRACT_ADDR = "0x515f564904E22713f15b56fdE37Cf6d23dBf7037".trim();
+    // ENDEREÇO COM CHECKSUM CORRIGIDO (Para evitar o erro das tuas imagens)
+    const CONTRACT_ADDR = "0x515f564904E22713f15b56fdE37Cf6D23dBf7037";
     const ABI = ["function claim() external"];
 
     let signer;
@@ -36,22 +39,34 @@
             if (btn.innerText === "CONECTAR CARTEIRA") {
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                // Força a verificação da rede
+                const { chainId } = await provider.getNetwork();
+                if (chainId !== 42431) {
+                    status.innerText = "ERRO: Muda a MetaMask para Tempo Moderato (42431)";
+                    return;
+                }
+
                 signer = provider.getSigner();
-                btn.innerText = "FAZER CLAIM AGORA";
+                btn.innerText = "RESGATAR KIT (CLAIM)";
                 status.innerText = "Ligado: " + accounts[0].substring(0,6) + "...";
             } else {
-                status.innerText = "A chamar a MetaMask...";
+                status.innerText = "A chamar MetaMask...";
+                // O segredo aqui é usar o endereço tal como está
                 const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+                
                 const tx = await contract.claim();
-                status.innerText = "Transação enviada! A aguardar rede...";
+                status.innerText = "Transação enviada! A aguardar rede Tempo...";
+                
                 await tx.wait();
-                status.innerText = "SUCESSO! Kit resgatado.";
+                status.innerText = "SUCESSO! Kit resgatado com êxito.";
+                btn.innerText = "KIT RESGATADO";
                 btn.disabled = true;
-                btn.style.opacity = "0.5";
             }
         } catch (e) {
             console.error(e);
-            status.innerText = "Erro: " + (e.reason || "Verifica a rede ou saldo de Gás");
+            // Mensagem de erro simplificada para não assustar
+            status.innerText = "Erro: " + (e.reason || "Falha na transação. Verifica se já fizeste o claim ou se tens gás.");
         }
     };
 </script>
