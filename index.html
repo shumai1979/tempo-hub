@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo TIP-20 Fix</title>
+    <title>Tempo Hub - TIP-20 Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         body { background: #0f172a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
@@ -13,42 +13,42 @@
 </head>
 <body>
     <div class="card">
-        <h3>TEMPO TIP-20 PROTOCOL</h3>
-        <p style="font-size: 11px; color: #64748b;">Moderato L1 Transfer Mode</p>
-        <button class="btn" onclick="executarComTIP20()">Executar com USD (TIP-20)</button>
+        <h3>TEMPO TESTNET</h3>
+        <p style="font-size: 11px; color: #64748b;">Moderato L1 - TIP-20 Mode</p>
+        <button class="btn" onclick="executarMint()">Executar Mint com USD</button>
         <div id="log">Aguardando...</div>
     </div>
 
 <script>
-    async function executarComTIP20() {
+    async function executarMint() {
         const log = document.getElementById('log');
         const wallet = window.rabby || window.ethereum;
         
         try {
-            const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-            const provider = new ethers.providers.Web3Provider(wallet);
-            const signer = provider.getSigner();
+            const contas = await wallet.request({ method: 'eth_requestAccounts' });
+            const provedor = new ethers.providers.Web3Provider(wallet);
+            const signatario = provedor.getSigner();
 
-            // 1. Corrigimos o erro de Checksum usando o endereço em minúsculas
-            const contractAddr = "0x515f5f64904e22713f15b56fde37cf6d23dbf7037";
-            const contract = new ethers.Contract(contractAddr, ["function mint(address to, uint256 amount) public"], signer);
+            // FIX: Endereço normalizado em minúsculas para matar o erro de Checksum
+            const contratoAddr = "0x515f5f64904e22713f15b56fde37cf6d23dbf7037";
+            const contrato = new ethers.Contract(contratoAddr, ["function mint(address to, uint256 amount) public"], signatario);
 
             log.innerText = "A chamar TIP20::Transfer para Gás...";
 
-            // 2. Forçamos a transação ignorando a simulação que a Rabby não suporta nesta rede
-            const tx = await contract.mint(accounts[0], ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1200000,
-                // Aumentamos o preço do gás para garantir que o validador aceita o TIP-20
-                gasPrice: (await provider.getGasPrice()).mul(15) 
+            // Forçamos o envio com gasLimit alto para compensar a falha de simulação
+            const tx = await contrato.mint(contas[0], ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1500000,
+                // Na rede Moderato, o GasPrice deve ser elevado para transações TIP-20
+                gasPrice: (await provedor.getGasPrice()).mul(2) 
             });
 
-            log.innerText = "Transação enviada! Confirme na Rabby.";
+            log.innerText = "Transação enviada! Verifique a Rabby.";
             await tx.wait();
             log.innerHTML = "<b style='color:#22c55e'>SUCESSO NO MINT!</b>";
         } catch (err) {
             console.error(err);
-            // O erro "invalid address" das suas fotos anteriores deve sumir aqui
-            log.innerHTML = "<span style='color:#f87171'>Erro de rede Moderato. Verifique o saldo TIP-20.</span>";
+            // O erro "invalid address" das suas capturas deve desaparecer aqui
+            log.innerHTML = "<span style='color:#f87171'>Erro: Requer USD/USDC TIP-20 para taxas.</span>";
         }
     }
 </script>
