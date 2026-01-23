@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEMPO Developer Hub</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 40px 20px; background-color: #050505; color: white; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .card { background-color: #111; padding: 25px; border-radius: 20px; display: inline-block; width: 100%; max-width: 420px; border: 2px solid #ff3e3e; box-shadow: 0 0 20px rgba(255, 62, 62, 0.2); }
+        h1 { color: #ff3e3e; font-size: 22px; margin-bottom: 15px; }
+        .status-badge { background: #ff3e3e; color: black; padding: 5px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; margin-bottom: 15px; display: inline-block; }
+        
+        .swap-box { background: #1a1a1a; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; text-align: left; opacity: 0.4; pointer-events: none; transition: 0.3s; }
+        .swap-box.active { opacity: 1; pointer-events: auto; }
+        
+        .swap-input-group { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+        .swap-input { background: transparent; border: none; color: white; font-size: 18px; width: 60%; outline: none; }
+        .token-tag { color: #ff3e3e; font-weight: bold; font-size: 14px; }
+        .balance-info { font-size: 11px; color: #ff3e3e; display: block; font-family: monospace; font-weight: bold; margin-bottom: 5px; }
+        
+        .main-btn { padding: 12px; font-size: 14px; cursor: pointer; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-bottom: 8px; transition: 0.2s; }
+        #connectBtn { background: #ff3e3e; color: white; }
+        .swap-btn { background: #fff; color: black; }
+        
+        #status { margin-top: 10px; font-size: 11px; color: #888; min-height: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>TEMPO Interaction Hub</h1>
+    <div class="status-badge">NETWORK: TEMPO TESTNET</div>
+
+    <button id="connectBtn" class="main-btn">CONNECT WALLET</button>
+
+    <div class="swap-box" id="swapContainer">
+        <span style="font-size: 9px; color: #888;">DE (TEMPO)</span>
+        <div class="swap-input-group">
+            <input type="number" id="swapAmount" class="swap-input" placeholder="0.0">
+            <span class="token-tag">TEMPO</span>
+        </div>
+        <span id="balanceFrom" class="balance-info">Balance: --</span>
+
+        <div style="text-align:center; color:#ff3e3e; margin: 10px 0;">↓</div>
+
+        <span style="font-size: 9px; color: #888;">PARA (T-USDC)</span>
+        <div class="swap-input-group">
+            <input type="text" id="swapResult" class="swap-input" readonly placeholder="0.0">
+            <span class="token-tag">USDC</span>
+        </div>
+        <span id="balanceTo" class="balance-info">Balance: --</span>
+        
+        <button id="swapBtn" class="main-btn swap-btn">SWAP ON TEMPO</button>
+    </div>
+    <div id="status">Ready.</div>
+</div>
+
+<script>
+    // Endereços da TEMPO (Exemplo - Deves confirmar os teus)
+    const POOL_ADDR = "0x..."; // Endereço do Router/Pool da Tempo
+    const USDC_ADDR = "0x..."; // Endereço do USDC na rede Tempo
+    const ABI = [
+        "function get_dy(int128 i, int128 j, uint256 dx) external view returns (uint256)",
+        "function exchange(int128 i, int128 j, uint256 dx, uint256 m) external returns (uint256)",
+        "function balanceOf(address a) public view returns (uint256)"
+    ];
+
+    let walletAddress = "";
+
+    async function updateBalances() {
+        if (!window.ethereum || !walletAddress) return;
+        try {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            // Lógica robusta: ler saldo nativo (TEMPO)
+            const balance = await provider.getBalance(walletAddress);
+            document.getElementById('balanceFrom').innerText = `Balance: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(2)} TEMPO`;
+            
+            // Ler saldo do USDC na Tempo
+            const usdc = new ethers.Contract(USDC_ADDR, ABI, provider);
+            const uBal = await usdc.balanceOf(walletAddress).catch(() => 0);
+            document.getElementById('balanceTo').innerText = `Balance: ${parseFloat(ethers.utils.formatUnits(uBal, 6)).toFixed(2)} USDC`;
+        } catch (e) { console.log("Sync..."); }
+    }
+
+    document.getElementById('connectBtn').onclick = async () => {
+        if (!window.ethereum) return;
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            walletAddress = accounts[0];
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('swapContainer').classList.add('active');
+            document.getElementById('status').innerText = "Connected to Tempo";
+            updateBalances();
+            setInterval(updateBalances, 5000);
+        } catch (e) { document.getElementById('status').innerText = "Failed."; }
+    };
+
+    // ... Resto da lógica de Swap segue o mesmo padrão da ARC
+</script>
+</body>
+</html>
