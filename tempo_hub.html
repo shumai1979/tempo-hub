@@ -1,78 +1,61 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEMPO Developer Hub</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 40px 20px; background-color: #050505; color: white; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .card { background-color: #111; padding: 25px; border-radius: 20px; display: inline-block; width: 100%; max-width: 420px; border: 2px solid #ff3e3e; box-shadow: 0 0 20px rgba(255, 62, 62, 0.2); }
-        h1 { color: #ff3e3e; font-size: 22px; margin-bottom: 15px; }
-        .status-badge { background: #ff3e3e; color: black; padding: 5px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; margin-bottom: 15px; display: inline-block; }
-        
-        .main-btn { padding: 12px; font-size: 14px; cursor: pointer; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-bottom: 8px; transition: 0.2s; background: #ff3e3e; color: white; }
-        .claim-box { background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; display: none; }
-        #status { margin-top: 15px; font-size: 11px; color: #888; }
-        .tx-link { display: block; margin-top: 10px; font-size: 10px; color: #ff3e3e; text-decoration: none; }
-    </style>
-</head>
-<body>
-
-<div class="card">
-    <h1>Tempo Hub Starter Kit</h1>
-    <div class="status-badge">NETWORK: TEMPO MODERATO</div>
-
-    <button id="connectBtn" class="main-btn">CONNECT WALLET</button>
-
-    <div class="claim-box" id="claimContainer">
-        <p style="font-size: 13px; color: #ccc;">Ready to claim your Starter Kit on Tempo Network.</p>
-        <button id="claimBtn" class="main-btn" style="background: white; color: black;">CLAIM STARTER KIT</button>
-    </div>
-
-    <div id="status">Please connect your wallet.</div>
-    <a id="explorerLink" class="tx-link" href="#" target="_blank" style="display:none;">View on Explorer ↗</a>
-</div>
-
 <script>
-    // Dados do teu README
+    // Endereço limpo e sem caracteres especiais
     const CONTRACT_ADDR = "0x515f564904E22713f15b56fdE37Cf6d23dBf7037";
-    const ABI = ["function claim() external", "function hasClaimed(address) public view returns (bool)"];
+    
+    // ABI simplificada para evitar erros de parsing
+    const ABI = [
+        "function claim() external",
+        "function hasClaimed(address) public view returns (bool)"
+    ];
 
     let walletAddress = "";
 
     document.getElementById('connectBtn').onclick = async () => {
-        if (!window.ethereum) { alert("MetaMask required!"); return; }
+        if (!window.ethereum) { 
+            alert("Instala a MetaMask primeiro!"); 
+            return; 
+        }
         try {
+            // Garante que estamos a pedir as contas corretamente
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
             walletAddress = accounts[0];
             
+            // Ativa a interface
             document.getElementById('connectBtn').style.display = 'none';
             document.getElementById('claimContainer').style.display = 'block';
-            document.getElementById('status').innerText = "Wallet: " + walletAddress.substring(0,6) + "...";
-        } catch (e) { document.getElementById('status').innerText = "Connection failed."; }
+            document.getElementById('status').innerText = "Ligado: " + walletAddress.substring(0,6) + "...";
+            
+            console.log("Conectado com sucesso ao endereço:", walletAddress);
+        } catch (e) { 
+            console.error("Erro na conexão:", e);
+            document.getElementById('status').innerText = "Erro ao ligar a carteira."; 
+        }
     };
 
     document.getElementById('claimBtn').onclick = async () => {
         try {
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             const signer = provider.getSigner();
-            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
-
-            document.getElementById('status').innerText = "Sending transaction...";
-            const tx = await contract.claim();
             
-            const link = document.getElementById('explorerLink');
-            link.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
-            link.style.display = "block";
+            // Criar o contrato garantindo que o endereço é uma String pura
+            const contract = new ethers.Contract(CONTRACT_ADDR.trim(), ABI, signer);
 
+            document.getElementById('status').innerText = "A enviar transação para a rede Tempo...";
+            
+            const tx = await contract.claim();
+            document.getElementById('status').innerText = "Transação enviada! A aguardar confirmação...";
+            
             await tx.wait();
-            document.getElementById('status').innerText = "Claim Successful!";
+            document.getElementById('status').innerText = "Sucesso! Starter Kit resgatado.";
+            confetti();
         } catch (e) { 
-            console.error(e);
-            document.getElementById('status').innerText = "Claim failed or already done."; 
+            console.error("Erro no Claim:", e);
+            // Mensagem amigável para o utilizador
+            if (e.message.includes("user rejected")) {
+                document.getElementById('status').innerText = "Transação cancelada pelo utilizador.";
+            } else {
+                document.getElementById('status').innerText = "Erro: Já resgataste ou saldo insuficiente.";
+            }
         }
     };
 </script>
-</body>
-</html>
