@@ -2,71 +2,75 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Tempo Hub - Resolução Final</title>
+    <title>Tempo Hub - Final Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
-        :root { --tempo-blue: #38bdf8; --bg: #0f172a; --card: #1e293b; --err: #f87171; }
+        :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; }
         body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid #334155; }
-        .btn { background: var(--tempo-blue); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
+        .box { background: var(--card); padding: 2.5rem; border-radius: 24px; text-align: center; width: 400px; border: 1px solid #334155; }
+        .btn { background: var(--primary); color: #000; border: none; padding: 1rem; width: 100%; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; }
         .status { margin-top: 20px; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); font-size: 0.85rem; color: #94a3b8; min-height: 50px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>TEMPO NETWORK</h2>
-        <div id="auth">
+    <div class="box">
+        <h2 style="margin:0">TEMPO NETWORK</h2>
+        <div id="connectSect">
             <button class="btn" onclick="connect()">Ligar Carteira</button>
         </div>
-        <div id="ops" style="display:none;">
-            <button class="btn" style="background:#22c55e; color:white;" onclick="execute()">Executar Mint</button>
+        <div id="actionSect" style="display:none;">
+            <button class="btn" style="background:#22c55e; color:white;" onclick="runTransaction()">Executar Mint</button>
         </div>
-        <div id="log" class="status">Aguardando sessão...</div>
+        <div id="console" class="status">Aguardando...</div>
     </div>
 
 <script>
-    // FIX: Endereço sem aspas internas ou espaços ocultos
-    const RAW_ADDR = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
-    let provider, signer, account;
+    // FIX: String limpa sem aspas extras para evitar o erro de consola
+    const CONTRACT_ADDRESS = "0x515f5f64904E22713f15b56fdE37Cf6d23DBF7037";
+    let provider, signer, userAddress;
 
     async function connect() {
-        if (!window.ethereum && !window.rabby) return alert("Wallet não encontrada");
         const wallet = window.rabby || window.ethereum;
-        
+        if (!wallet) return alert("Instale a Rabby ou MetaMask");
+
         const accounts = await wallet.request({ method: 'eth_requestAccounts' });
-        account = accounts[0];
+        userAddress = accounts[0];
         provider = new ethers.providers.Web3Provider(wallet, "any");
         signer = provider.getSigner();
 
-        document.getElementById('auth').style.display = 'none';
-        document.getElementById('ops').style.display = 'block';
-        document.getElementById('log').innerText = "Ligado: " + account.slice(0,10) + "...";
+        document.getElementById('connectSect').style.display = 'none';
+        document.getElementById('actionSect').style.display = 'block';
+        document.getElementById('console').innerText = "Ligado: " + userAddress;
     }
 
-    async function execute() {
-        const log = document.getElementById('log');
-        log.innerText = "Validando TIP-20 Gas Path...";
-        
+    async function runTransaction() {
+        const log = document.getElementById('console');
+        log.innerText = "Validando contrato...";
+
         try {
-            // Elimina o erro "invalid address" da consola
-            const cleanAddr = ethers.utils.getAddress(RAW_ADDR.trim());
-            const contract = new ethers.Contract(cleanAddr, ["function mint(address to, uint256 amount) public"], signer);
+            // A função getAddress limpa e valida o formato para o ethers.js
+            const validatedContract = ethers.utils.getAddress(CONTRACT_ADDRESS.trim());
+            const contract = new ethers.Contract(
+                validatedContract, 
+                ["function mint(address to, uint256 amount) public"], 
+                signer
+            );
+
+            log.innerText = "Estimando taxas TIP-20...";
             
-            // Lógica para pagar taxas com qualquer stablecoin
-            const feeData = await provider.getGasPrice();
-            
-            const tx = await contract.mint(account, ethers.utils.parseUnits("1", 18), {
-                gasLimit: 1400000,
-                gasPrice: feeData.mul(140).div(100) // 40% de bónus para prioridade Moderato
+            // Forçamos um gasLimit maior para redes Moderato/Tempo
+            const tx = await contract.mint(userAddress, ethers.utils.parseUnits("1", 18), {
+                gasLimit: 1500000
             });
 
-            log.innerText = "Pendente na rede Tempo...";
+            log.innerText = "Transação enviada...";
             await tx.wait();
-            log.innerHTML = "<b style='color:#22c55e'>SUCESSO: TESTE CONCLUÍDO</b>";
+            log.innerHTML = "<b style='color:#22c55e'>SUCESSO!</b>";
         } catch (err) {
             console.error(err);
-            // Diagnóstico visual dos erros nas suas fotos
-            log.innerHTML = "<span style='color:var(--err)'><b>Erro de Saldo:</b><br>Precisas de USDC ou USD na rede Moderato para pagar o gás.</span>";
+            // Se o erro de "Insufficient balance" persistir mesmo com saldo, 
+            // pode ser que os tokens não sejam TIP-20 compatíveis para gás
+            log.innerHTML = "<span style='color:#f87171'>Erro de processamento. Verifique se o saldo é em USDC/USD na rede Moderato.</span>";
         }
     }
 </script>
