@@ -1,8 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEMPO Dev Hub | Starter Kit</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; padding: 40px 20px; background-color: #050505; color: white; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .card { background-color: #111; padding: 30px; border-radius: 20px; width: 100%; max-width: 400px; border: 2px solid #ff3e3e; box-shadow: 0 0 25px rgba(255, 62, 62, 0.15); }
+        h1 { color: #ff3e3e; font-size: 24px; margin-bottom: 5px; }
+        .status-badge { background: #ff3e3e; color: black; padding: 5px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; margin-bottom: 20px; display: inline-block; }
+        .main-btn { padding: 15px; font-size: 15px; cursor: pointer; border-radius: 12px; border: none; font-weight: bold; width: 100%; transition: 0.3s; background: #ff3e3e; color: white; margin-top: 10px; }
+        .main-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        #claimSection { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
+        #status { margin-top: 20px; font-size: 12px; color: #888; font-family: monospace; }
+        .tx-link { display: block; margin-top: 10px; font-size: 11px; color: #ff3e3e; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>TEMPO NETWORK</h1>
+    <div class="status-badge">MODERATO TESTNET</div>
+
+    <button id="connectBtn" class="main-btn">CONECTAR CARTEIRA</button>
+
+    <div id="claimSection">
+        <p style="font-size: 14px; color: #ccc; margin-bottom: 20px;">Pronto para resgatar o Starter Kit.</p>
+        <button id="claimBtn" class="main-btn" style="background: white; color: black;">CONFIRMAR E MINT</button>
+    </div>
+
+    <div id="status">Aguardando conexão...</div>
+    <a id="explorerLink" class="tx-link" href="#" target="_blank" style="display:none;">Ver no Explorer ↗</a>
+</div>
+
 <script>
-    // Endereço limpo e sem caracteres especiais
-    const CONTRACT_ADDR = "0x515f564904E22713f15b56fdE37Cf6d23dBf7037";
+    // Endereço limpo para evitar o erro INVALID_ARGUMENT visto na consola
+    const CONTRACT_ADDR = "0x515f564904E22713f15b56fdE37Cf6d23dBf7037".trim();
     
-    // ABI simplificada para evitar erros de parsing
     const ABI = [
         "function claim() external",
         "function hasClaimed(address) public view returns (bool)"
@@ -11,24 +47,16 @@
     let walletAddress = "";
 
     document.getElementById('connectBtn').onclick = async () => {
-        if (!window.ethereum) { 
-            alert("Instala a MetaMask primeiro!"); 
-            return; 
-        }
+        if (!window.ethereum) { alert("Instala a MetaMask!"); return; }
         try {
-            // Garante que estamos a pedir as contas corretamente
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
             walletAddress = accounts[0];
             
-            // Ativa a interface
             document.getElementById('connectBtn').style.display = 'none';
-            document.getElementById('claimContainer').style.display = 'block';
-            document.getElementById('status').innerText = "Ligado: " + walletAddress.substring(0,6) + "...";
-            
-            console.log("Conectado com sucesso ao endereço:", walletAddress);
+            document.getElementById('claimSection').style.display = 'block';
+            document.getElementById('status').innerText = "Conectado: " + walletAddress.substring(0,6) + "...";
         } catch (e) { 
-            console.error("Erro na conexão:", e);
-            document.getElementById('status').innerText = "Erro ao ligar a carteira."; 
+            document.getElementById('status').innerText = "Erro ao conectar."; 
         }
     };
 
@@ -36,26 +64,30 @@
         try {
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             const signer = provider.getSigner();
-            
-            // Criar o contrato garantindo que o endereço é uma String pura
-            const contract = new ethers.Contract(CONTRACT_ADDR.trim(), ABI, signer);
+            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
 
-            document.getElementById('status').innerText = "A enviar transação para a rede Tempo...";
+            document.getElementById('status').innerText = "A processar Claim...";
             
+            // Chama a função claim do contrato
             const tx = await contract.claim();
-            document.getElementById('status').innerText = "Transação enviada! A aguardar confirmação...";
             
+            document.getElementById('status').innerText = "Transação enviada! Aguardando...";
+            const link = document.getElementById('explorerLink');
+            link.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
+            link.style.display = "block";
+
             await tx.wait();
-            document.getElementById('status').innerText = "Sucesso! Starter Kit resgatado.";
-            confetti();
+            document.getElementById('status').innerText = "Sucesso! Kit resgatado.";
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
         } catch (e) { 
-            console.error("Erro no Claim:", e);
-            // Mensagem amigável para o utilizador
+            console.error(e);
             if (e.message.includes("user rejected")) {
-                document.getElementById('status').innerText = "Transação cancelada pelo utilizador.";
+                document.getElementById('status').innerText = "Cancelado na MetaMask.";
             } else {
-                document.getElementById('status').innerText = "Erro: Já resgataste ou saldo insuficiente.";
+                document.getElementById('status').innerText = "Erro: Já resgatado ou saldo insuficiente.";
             }
         }
     };
 </script>
+</body>
+</html>
