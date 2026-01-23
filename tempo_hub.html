@@ -3,89 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TEMPO Dev Hub | Starter Kit</title>
+    <title>TEMPO Starter Kit</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; padding: 40px 20px; background-color: #050505; color: white; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .card { background-color: #111; padding: 30px; border-radius: 20px; width: 100%; max-width: 400px; border: 2px solid #ff3e3e; box-shadow: 0 0 25px rgba(255, 62, 62, 0.15); }
-        h1 { color: #ff3e3e; font-size: 24px; margin-bottom: 5px; }
-        .status-badge { background: #ff3e3e; color: black; padding: 5px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; margin-bottom: 20px; display: inline-block; }
-        .main-btn { padding: 15px; font-size: 15px; cursor: pointer; border-radius: 12px; border: none; font-weight: bold; width: 100%; transition: 0.3s; background: #ff3e3e; color: white; margin-top: 10px; }
-        .main-btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        #claimSection { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
-        #status { margin-top: 20px; font-size: 12px; color: #888; font-family: monospace; }
-        .tx-link { display: block; margin-top: 10px; font-size: 11px; color: #ff3e3e; text-decoration: none; }
+        body { font-family: sans-serif; background: #0a0a0a; color: white; text-align: center; padding: 50px; }
+        .card { background: #161616; padding: 30px; border-radius: 15px; border: 1px solid #ff3e3e; max-width: 350px; margin: auto; }
+        .btn { background: #ff3e3e; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        #status { margin-top: 20px; font-size: 12px; color: #888; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <h1>TEMPO NETWORK</h1>
-    <div class="status-badge">MODERATO TESTNET</div>
-
-    <button id="connectBtn" class="main-btn">CONECTAR CARTEIRA</button>
-
-    <div id="claimSection">
-        <p style="font-size: 14px; color: #ccc; margin-bottom: 20px;">Pronto para resgatar o Starter Kit.</p>
-        <button id="claimBtn" class="main-btn" style="background: white; color: black;">CONFIRMAR E MINT</button>
+    <div class="card">
+        <h2 style="color: #ff3e3e;">TEMPO NETWORK</h2>
+        <p id="walletInfo">Mude para a rede Moderato</p>
+        <button id="actionBtn" class="btn">CONECTAR CARTEIRA</button>
+        <div id="status">Aguardando...</div>
     </div>
 
-    <div id="status">Aguardando conexão...</div>
-    <a id="explorerLink" class="tx-link" href="#" target="_blank" style="display:none;">Ver no Explorer ↗</a>
-</div>
-
 <script>
-    // Endereço limpo para evitar o erro INVALID_ARGUMENT visto na consola
+    // Endereço extraído diretamente do teu README
     const CONTRACT_ADDR = "0x515f564904E22713f15b56fdE37Cf6d23dBf7037".trim();
-    
-    const ABI = [
-        "function claim() external",
-        "function hasClaimed(address) public view returns (bool)"
-    ];
+    const ABI = ["function claim() external"];
 
-    let walletAddress = "";
+    let signer;
 
-    document.getElementById('connectBtn').onclick = async () => {
-        if (!window.ethereum) { alert("Instala a MetaMask!"); return; }
-        try {
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            walletAddress = accounts[0];
-            
-            document.getElementById('connectBtn').style.display = 'none';
-            document.getElementById('claimSection').style.display = 'block';
-            document.getElementById('status').innerText = "Conectado: " + walletAddress.substring(0,6) + "...";
-        } catch (e) { 
-            document.getElementById('status').innerText = "Erro ao conectar."; 
+    document.getElementById('actionBtn').onclick = async () => {
+        const btn = document.getElementById('actionBtn');
+        const status = document.getElementById('status');
+
+        if (!window.ethereum) {
+            alert("MetaMask não encontrada!");
+            return;
         }
-    };
 
-    document.getElementById('claimBtn').onclick = async () => {
         try {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
-            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
-
-            document.getElementById('status').innerText = "A processar Claim...";
-            
-            // Chama a função claim do contrato
-            const tx = await contract.claim();
-            
-            document.getElementById('status').innerText = "Transação enviada! Aguardando...";
-            const link = document.getElementById('explorerLink');
-            link.href = "https://explorer.tempo.xyz/tx/" + tx.hash;
-            link.style.display = "block";
-
-            await tx.wait();
-            document.getElementById('status').innerText = "Sucesso! Kit resgatado.";
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-        } catch (e) { 
-            console.error(e);
-            if (e.message.includes("user rejected")) {
-                document.getElementById('status').innerText = "Cancelado na MetaMask.";
-            } else {
-                document.getElementById('status').innerText = "Erro: Já resgatado ou saldo insuficiente.";
+            // Fase 1: Conectar
+            if (btn.innerText === "CONECTAR CARTEIRA") {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                
+                btn.innerText = "CONFIRMAR CLAIM";
+                status.innerText = "Conectado: " + accounts[0].substring(0,6) + "...";
+                return;
             }
+
+            // Fase 2: Transação
+            status.innerText = "A processar na MetaMask...";
+            const contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+            
+            const tx = await contract.claim();
+            status.innerText = "Transação enviada! Aguarde...";
+            
+            await tx.wait();
+            status.innerText = "Sucesso! Kit resgatado.";
+            btn.style.display = "none";
+
+        } catch (e) {
+            console.error(e);
+            // Captura o erro específico que vimos na consola das tuas imagens
+            status.innerText = "Erro: " + (e.reason || "Falha na transação ou rede incorreta");
         }
     };
 </script>
